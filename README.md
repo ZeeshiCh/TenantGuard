@@ -162,16 +162,17 @@ Apply `tenantPolicySql('orders')` from `@tenantguard/postgres` in an owner-run m
 After building:
 
 ```sh
-DATABASE_URL=postgresql://... node packages/cli/dist/index.js audit
+node packages/cli/dist/index.js doctor --config examples/tenantguard.diagnostics.json
+node packages/cli/dist/index.js audit --config examples/tenantguard.diagnostics.json --json
 ```
 
-The CLI inventories user tables and exits 1 for missing RLS/FORCE/policies or operational errors. It does not prove policy correctness or certify isolation.
+The CLI validates explicit JSON configuration and environment references, then performs read-only checks of declared targets across PostgreSQL, SQL Server, MySQL, MariaDB, MongoDB and SQLite. Doctor is offline unless `--connect` is supplied; audit connects. It reuses the already-published `tenant-audit@0.2.0` and `db-deploy-doctor@0.2.0` where supported. See the [CLI guide](packages/cli/README.md) for configuration, coverage, exit codes and limitations, and [ecosystem integration](docs/ecosystem.md) for the existing shipped tools.
 
 ## Layout and release status
 
 `packages/`: core, node, fetch, hono, postgres, sqlserver, mysql, mariadb, mongodb, sqlite, scoped-sql, scoped-mongo, prisma, drizzle, mongoose, typeorm, nestjs, testing and cli. `examples/`: NestJS + TypeORM orders endpoint. `apps/docs` and `apps/playground` remain placeholders.
 
-Packages are ESM with TypeScript declarations. No npm packages or hosted services have been published, and package-name availability has not been checked. The [complete roadmap](docs/implementation-plan.md) covers remaining databases, ORMs, frameworks, runtime support, tooling, security review and deployment.
+Packages are ESM with TypeScript declarations. No TenantGuard workspace packages or hosted services have been published, and package-name availability has not been checked. The [complete roadmap](docs/implementation-plan.md) covers remaining databases, ORMs, frameworks, runtime support, tooling, security review and deployment.
 
 ## Express, Fastify and Koa
 

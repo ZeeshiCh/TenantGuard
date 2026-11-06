@@ -214,3 +214,7 @@ Prereleases may expose completed, tested subsets: PostgreSQL + Node/NestJS/Hono 
 - GitHub Pages static hosting: https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
 - Render container deployment: https://render.com/docs/deploying-an-image
 - npm trusted publishing: https://docs.npmjs.com/trusted-publishers/
+
+## Doctor and audit delivery — November 7, 2026
+
+Implemented explicit JSON configuration validation, offline/connected doctor, connected audit, human/JSON reports and documented exit codes. Six native collectors inspect adapter-specific catalogs; exact published `tenant-audit@0.2.0` and `db-deploy-doctor@0.2.0` binaries supply existing supported checks. Real database and packed CLI tests cover actual execution, read-only preservation, privilege/policy failures, timeout and signal cleanup. See the [CLI guide](../packages/cli/README.md). Remaining tooling includes init, policy generation commands, explicit isolation probes, benchmark work and independent review; this milestone does not claim those are complete.

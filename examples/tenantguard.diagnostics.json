@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "strict": true,
+  "sources": [
+    {
+      "name": "orders",
+      "engine": "postgres",
+      "mode": "database-policy",
+      "urlEnv": "TG_POSTGRES_URL",
+      "targets": [
+        { "schema": "public", "table": "orders", "tenantColumn": "tenant_id" }
+      ]
+    }
+  ]
+}

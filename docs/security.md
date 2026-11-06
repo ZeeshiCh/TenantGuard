@@ -14,7 +14,7 @@ Tenant context is transaction-local. All queries must use the manager supplied b
 
 RLS using a custom setting does not protect against arbitrary SQL injection or malicious application code: the database role can change that setting. Parameterize queries and secure application credentials. TenantGuard does not implement identity verification, tenant provisioning, per-tenant encryption, rate limits or a security sandbox.
 
-The audit CLI checks catalog flags and policy presence only. It does not validate policy semantics, effective role membership, grants, owners, functions or views. Its output must not be used as certification.
+The doctor/audit CLI validates explicit config and inspects declared targets read-only across six database engines. It checks supported native policy templates and selected effective privilege paths, and reuses the pinned published relational/readiness analyzers. Custom or inaccessible policy definitions yield incomplete inspection. Coverage differs by engine; application-filter checks cannot verify every application query. Reports are observations, never certification. See the [CLI guide](../packages/cli/README.md).
 
 References: [PostgreSQL row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html), [transaction-local configuration](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SET).
 
@@ -30,7 +30,7 @@ TypeORM retains its existing lifecycle implementation and does not automatically
 
 Native policies filter reads/updates/deletes and block foreign inserts or ownership changes. SESSION_CONTEXT is session-scoped and remains after rollback, so the adapter clears it explicitly, verifies state, resets the physical connection and verifies again before pooling. Read-only keys, uncertain cleanup, timeout and socket failures force destruction. Runtime logins must not be able to alter policies/predicate functions, manage security or impersonate privileged principals. Required policy metadata must be visible; unknown permission checks fail closed.
 
-The T-SQL data-batch prefix check is not a parser or SQL injection defense. Do not embed transaction/session management in callback batches or expose arbitrary SQL to users. Such contract violations can have already-committed effects; outcome reporting cannot undo them. Policy functions, signed/impersonating modules, broader role grants and undeclared tables require independent review. The SQL Server adapter does not imply Azure SQL or arbitrary topology certification, and the audit CLI is still PostgreSQL-only.
+The T-SQL data-batch prefix check is not a parser or SQL injection defense. Do not embed transaction/session management in callback batches or expose arbitrary SQL to users. Such contract violations can have already-committed effects; outcome reporting cannot undo them. Policy functions, signed/impersonating modules, broader role grants and undeclared tables require independent review. The SQL Server adapter does not imply Azure SQL or arbitrary topology certification, and CLI template recognition does not prove arbitrary policy semantics.
 
 See the [SQL Server guide](../packages/sqlserver/README.md) for pool ownership, grants, commit outcomes and the local emulation/native CI distinction.
 
