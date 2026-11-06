@@ -71,19 +71,20 @@ See the [shared guide](../packages/scoped-sql/README.md). The compiler source ha
 
 ## Current support
 
-| Area                            | Implemented                                                                                                           | Still planned                                                                                  |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Portable core                   | Explicit scopes, authorization contract, routing/capability contracts                                                 | Registry cache/provisioning, full diagnostics                                                  |
-| Node                            | Default and isolated AsyncLocalStorage carriers                                                                       | Worker/stream-specific lifecycle certification                                                 |
-| Fetch                           | Request handler wrapper; explicit context                                                                             | Platform-specific runtime certification                                                        |
-| Hono                            | Typed middleware; explicit context or supplied Node carrier; request-level concurrency tests                          | Bun/Deno/Workers certification, full HTTP server example                                       |
-| NestJS                          | Authorizer option, legacy resolver, interceptor/decorator; subscription lifecycle tests                               | Full HTTP/e2e and non-HTTP integrations                                                        |
-| PostgreSQL                      | UUID policies, direct pg adapter with guarded lifecycle, TypeORM helpers; shared real-database conformance            | Policy-expression analysis, partition/proxy certification and TypeORM lifecycle parity         |
-| SQL Server                      | Native RLS policy helpers, dedicated Tedious pool, verified session cleanup, real conformance/lifecycle tests         | Azure SQL, authentication/runtime/version expansion and policy audit CLI                       |
-| MySQL / MariaDB                 | Native-driver scoped CRUD, binary tenant predicates, dedicated pools and verified reset; same real-engine conformance | Native RLS-equivalent protection, ORM support and complex query operations are not implemented |
-| Other databases/ORMs/frameworks | Public contracts only                                                                                                 | Concrete adapters and real-engine conformance suites                                           |
+| Area                            | Implemented                                                                                                           | Still planned                                                                                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Portable core                   | Explicit scopes, authorization contract, routing/capability contracts                                                 | Registry cache/provisioning, full diagnostics                                                        |
+| Node                            | Default and isolated AsyncLocalStorage carriers                                                                       | Worker/stream-specific lifecycle certification                                                       |
+| Fetch                           | Request handler wrapper; explicit context                                                                             | Platform-specific runtime certification                                                              |
+| Hono                            | Typed middleware; explicit context or supplied Node carrier; request-level concurrency tests                          | Bun/Deno/Workers certification, full HTTP server example                                             |
+| NestJS                          | Authorizer option, legacy resolver, interceptor/decorator; subscription lifecycle tests                               | Full HTTP/e2e and non-HTTP integrations                                                              |
+| PostgreSQL                      | UUID policies, direct pg adapter with guarded lifecycle, TypeORM helpers; shared real-database conformance            | Policy-expression analysis, partition/proxy certification and TypeORM lifecycle parity               |
+| SQL Server                      | Native RLS policy helpers, dedicated Tedious pool, verified session cleanup, real conformance/lifecycle tests         | Azure SQL, authentication/runtime/version expansion and policy audit CLI                             |
+| MongoDB                         | Scoped JSON CRUD and single-stream aggregation, replica-set transactions, bounded session cleanup; real conformance   | Application filtering only; standalone, sharding, arbitrary BSON/pipelines and Mongoose are deferred |
+| MySQL / MariaDB                 | Native-driver scoped CRUD, binary tenant predicates, dedicated pools and verified reset; same real-engine conformance | Native RLS-equivalent protection, ORM support and complex query operations are not implemented       |
+| Other databases/ORMs/frameworks | Public contracts only                                                                                                 | Concrete adapters and real-engine conformance suites                                                 |
 
-Portability checks build core/Fetch/Hono for a browser target and reject Node imports in that graph. They establish an import boundary, not certification of edge deployment or database connectivity. Packed core/Node/Fetch/PostgreSQL/SQL Server/MySQL/MariaDB packages are installed into an isolated temporary consumer offline and tested as JavaScript and TypeScript.
+Portability checks build core/Fetch/Hono for a browser target and reject Node imports in that graph. They establish an import boundary, not certification of edge deployment or database connectivity. Packed core/Node/Fetch/PostgreSQL/SQL Server/MySQL/MariaDB/MongoDB packages are installed into an isolated temporary consumer offline and tested as JavaScript and TypeScript.
 
 ## Phase 0 verification and limitations
 
@@ -92,3 +93,9 @@ The previous integration test had never completed locally. Running it against Po
 CI uses clean frozen-lockfile installs, formatting, strict TypeScript unused-symbol checks, unit tests, portability bundles, package builds, packed-package consumer smoke tests and PostgreSQL integration testing. Node 22 and 24 are configured as CI targets; local results do not claim remote CI has already run. No independent security review has occurred.
 
 Remaining foundation work includes production pool/registry lifecycle, nested transaction specification beyond explicit rejection, additional framework and database adapters, runtime certification and independent review. The full roadmap is not complete. The direct pg and conformance milestone is recorded in [progress](progress.md).
+
+## MongoDB lifecycle
+
+The MongoDB adapter implements the same explicit-context routing contract with application-filter capabilities. Each scope creates an explicit logical session over an owned MongoClient and serializes transactional operations. Scalar-string ownership predicates and binary collation guard CRUD; the aggregation compiler prepends ownership and a declared-field projection, tracks fields and rejects stages that add streams or write results. Replica-set and ordinary-collection metadata are required before business work.
+
+Work/request/cleanup deadlines, poisoned failures, expired facades, abort/endSession and client retirement on uncertainty protect the lifecycle. Retiring a shared resource can interrupt other scopes; infrastructure must replace it. No connection tenant variable or native RLS is implied. See the [MongoDB guide](../packages/mongodb/README.md) for the exact grammar, ownership and retry contract.
