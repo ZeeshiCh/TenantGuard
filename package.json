@@ -9,7 +9,7 @@
     "build": "turbo run build",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:integration": "node --import tsx --test tests/*.integration.ts",
+    "test:integration": "node --import tsx --test --test-concurrency=1 tests/*.integration.ts",
     "check": "pnpm format:check && pnpm typecheck && pnpm test && pnpm check:portable && pnpm build && pnpm test:packages",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

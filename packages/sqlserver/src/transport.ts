@@ -17,6 +17,8 @@ export interface SqlServerSession {
     parameters?: Readonly<Record<string, SqlServerValue>>,
     timeoutMs?: number,
   ): Promise<SqlServerResult<Row>>;
+  /** Internal unparameterized session-management batch; never expose to request handlers. */
+  batch(text: string, timeoutMs?: number): Promise<SqlServerResult>;
   begin(): Promise<void>;
   commit(): Promise<void>;
   reset(): Promise<void>;
@@ -45,7 +47,11 @@ export function positiveMilliseconds(
   return result;
 }
 function parameter(request: Request, name: string, value: SqlServerValue) {
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) || name.length > 128)
+  if (
+    !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) ||
+    name.length > 127 ||
+    Object.hasOwn(Object.prototype, name)
+  )
     throw new TypeError('Invalid SQL Server parameter name');
   if (value === null || typeof value === 'string')
     request.addParameter(name, TYPES.NVarChar, value, {
@@ -154,34 +160,46 @@ export function createSqlServerPool(
         if (released || !resource.healthy)
           throw new Error('SQL Server session is closed');
       };
+      const submit = <Row extends object>(
+        text: string,
+        parameters: Readonly<Record<string, SqlServerValue>>,
+        timeoutMs: number,
+        batch: boolean,
+      ): Promise<SqlServerResult<Row>> => {
+        return new Promise((resolve, reject) => {
+          assertActive();
+          const rows: Row[] = [];
+          const request = new Request(text, (error, rowCount) => {
+            if (error) reject(error);
+            else resolve({ rows, rowCount: rowCount ?? rows.length });
+          });
+          request.setTimeout(timeoutMs);
+          for (const [name, value] of Object.entries(parameters))
+            parameter(request, name, value);
+          request.on('row', (columns) => {
+            const row: Record<string, unknown> = {};
+            for (const column of columns)
+              Object.defineProperty(row, column.metadata.colName, {
+                value: column.value,
+                enumerable: true,
+                configurable: true,
+              });
+            rows.push(row as Row);
+          });
+          if (batch) resource.connection.execSqlBatch(request);
+          else resource.connection.execSql(request);
+        });
+      };
       return Object.freeze({
         query<Row extends object = Record<string, unknown>>(
           text: string,
           parameters: Readonly<Record<string, SqlServerValue>> = {},
           timeoutMs = 15000,
-        ): Promise<SqlServerResult<Row>> {
-          return new Promise((resolve, reject) => {
-            assertActive();
-            const rows: Row[] = [];
-            const request = new Request(text, (error, rowCount) => {
-              if (error) reject(error);
-              else resolve({ rows, rowCount: rowCount ?? rows.length });
-            });
-            request.setTimeout(timeoutMs);
-            for (const [name, value] of Object.entries(parameters))
-              parameter(request, name, value);
-            request.on('row', (columns) => {
-              const row: Record<string, unknown> = {};
-              for (const column of columns)
-                Object.defineProperty(row, column.metadata.colName, {
-                  value: column.value,
-                  enumerable: true,
-                  configurable: true,
-                });
-              rows.push(row as Row);
-            });
-            resource.connection.execSql(request);
-          });
+        ) {
+          return submit<Row>(text, parameters, timeoutMs, false);
+        },
+        batch(text: string, timeoutMs = 15000) {
+          return submit<Record<string, unknown>>(text, {}, timeoutMs, true);
         },
         begin: () =>
           new Promise<void>((resolve, reject) => {
