@@ -36,7 +36,8 @@
       "@tenantguard/koa": ["./packages/koa/src/index.ts"],
       "@tenantguard/registry": ["./packages/registry/src/index.ts"],
       "@tenantguard/resources": ["./packages/resources/src/index.ts"],
-      "@tenantguard/lifecycle": ["./packages/lifecycle/src/index.ts"]
+      "@tenantguard/lifecycle": ["./packages/lifecycle/src/index.ts"],
+      "@tenantguard/lifecycle/pg": ["./packages/lifecycle/src/pg.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true

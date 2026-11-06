@@ -26,6 +26,7 @@ export async function postgresFixture() {
   }
   return {
     admin,
+    adminConfig: { connectionString: container.getConnectionUri() },
     config: {
       host: container.getHost(),
       port: container.getPort(),
