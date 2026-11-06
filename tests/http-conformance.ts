@@ -6,12 +6,18 @@ import {
   createTenantGuard,
   TenantAuthorizationError,
 } from '../packages/core/src/index.js';
-import { getTenant, requireTenant } from '../packages/node/src/index.js';
+import {
+  createNodeContextCarrier,
+  getTenant,
+  requireTenant,
+} from '../packages/node/src/index.js';
 
+const carrier = createNodeContextCarrier();
 export const outage = new Error('membership provider unavailable');
 /** Authentication fixture: tokens map to memberships; tenant headers are deliberately ignored. */
 export function guard<Input>(token: (input: Input) => string | undefined) {
   return createTenantGuard<Input>({
+    carrier,
     authorize: async (input) => {
       assert.equal(getTenant(), undefined);
       await delay(2);
@@ -25,11 +31,26 @@ export function guard<Input>(token: (input: Input) => string | undefined) {
     },
   });
 }
+export function recordError(
+  errors: unknown[],
+  error: unknown,
+  insideTenantScope = true,
+) {
+  if (insideTenantScope && error instanceof TenantAuthorizationError) {
+    assert.equal(requireTenant().principalId, 'alice');
+  } else {
+    assert.equal(getTenant(), undefined);
+  }
+  errors.push(error);
+}
 export async function handle(path: string) {
   const before = requireTenant();
+  assert.deepEqual(carrier.get(), before);
   assert(Object.isFrozen(before));
   await delay(before.tenantId === 'Org_A' ? 8 : 3);
   assert.deepEqual(requireTenant(), before);
+  assert.deepEqual(carrier.get(), before);
+  if (path === '/abort') await delay(50);
   if (path === '/throw') throw new TenantAuthorizationError();
   return before;
 }
@@ -100,6 +121,20 @@ export function conformance(
           assert.deepEqual(await publicResponse.json(), { tenant: null });
           assert.equal(getTenant(), undefined);
         }
+        const controller = new AbortController();
+        const disconnected = fetch(url + '/abort', {
+          headers: { authorization: 'alice' },
+          signal: controller.signal,
+        });
+        await delay(5);
+        controller.abort();
+        await assert.rejects(disconnected, { name: 'AbortError' });
+        await delay(75);
+        const afterAbort = await request('/tenant', 'bob');
+        assert.deepEqual(await afterAbort.json(), {
+          tenantId: 'org_a',
+          principalId: 'bob',
+        });
         assert.equal(errors.filter((error) => error === outage).length, 3);
         assert.equal(
           errors.filter((error) => error instanceof TenantAuthorizationError)

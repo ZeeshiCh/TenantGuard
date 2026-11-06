@@ -6,19 +6,16 @@ export function tenantHook(
   guard: TenantGuard<FastifyRequest>,
 ): preHandlerHookHandler {
   return (request, reply, done) => {
-    void guard.authorize(request).then(
-      (tenant) => {
-        try {
-          nodeContext.run(tenant, () => done());
-        } catch (error) {
-          done(error as Error);
-        }
-      },
-      (error: unknown) => {
-        if (error instanceof TenantAuthorizationError) {
+    let authorized = false;
+    void guard
+      .run(request, (tenant) => {
+        authorized = true;
+        nodeContext.run(tenant, () => done());
+      })
+      .catch((error: unknown) => {
+        if (!authorized && error instanceof TenantAuthorizationError) {
           void reply.code(403).send('Tenant access denied');
         } else done(error as Error);
-      },
-    );
+      });
   };
 }

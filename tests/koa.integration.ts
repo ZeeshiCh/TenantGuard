@@ -8,6 +8,7 @@ import {
   guard,
   handle,
   listen,
+  recordError,
 } from './http-conformance.js';
 conformance('Koa', async () => {
   const app = new Koa();
@@ -16,7 +17,8 @@ conformance('Koa', async () => {
     try {
       await next();
     } catch (error) {
-      errors.push(error);
+      // Upstream Koa middleware resumes outside the nested tenant scope.
+      recordError(errors, error, false);
       context.status = 500;
       context.body = 'Internal error';
     }

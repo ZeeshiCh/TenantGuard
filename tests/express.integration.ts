@@ -8,6 +8,7 @@ import {
   guard,
   handle,
   listen,
+  recordError,
 } from './http-conformance.js';
 conformance('Express', async () => {
   const app = express();
@@ -25,7 +26,7 @@ conformance('Express', async () => {
     response,
     _next,
   ) => {
-    errors.push(error);
+    recordError(errors, error);
     response.status(500).send('Internal error');
   };
   app.use(errorHandler);
