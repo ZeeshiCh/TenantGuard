@@ -109,6 +109,7 @@ try {
   for (const name of [
     'core',
     'registry',
+    'resources',
     'node',
     'fetch',
     'postgres',
@@ -197,9 +198,11 @@ try {
     join(temporary, 'consumer.mjs'),
     `
     import assert from 'node:assert/strict';
+    import {AsyncLocalStorage} from 'node:async_hooks';
     import { createTenantGuard, createTenantRouter } from '@tenantguard/core';
     import { nodeContext, requireTenant } from '@tenantguard/node';
     import { createCachedTenantRegistry } from '@tenantguard/registry';
+    import {createTenantResourcePool,createPooledAdapter} from '@tenantguard/resources';
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
     import { createPgAdapter } from '@tenantguard/postgres/pg';
@@ -211,6 +214,21 @@ try {
     import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
     import { createDrizzlePgResource, createDrizzleMysqlResource, createDrizzleAdapter } from '@tenantguard/drizzle';
     import { pgTable, text } from 'drizzle-orm/pg-core';
+    const resourceRoute={tenantId:'Org_A',source:'orders',adapter:'fixture',resource:'pool',revision:'1',status:'active',mode:'database-policy'};
+    let createdResources=0,closedResources=0;
+    const resources=createTenantResourcePool({create:async()=>({id:++createdResources}),destroy:async()=>{closedResources++;},maxResources:1});
+    resources.setRoute(resourceRoute);
+    const callerContext=new AsyncLocalStorage();
+    await Promise.all(Array.from({length:24},(_,i)=>callerContext.run(i,()=>resources.run(resourceRoute,async()=>{
+      assert.equal(callerContext.getStore(),i);await Promise.resolve();assert.equal(callerContext.getStore(),i);
+    }))));
+    const resourceValues=await Promise.all(Array.from({length:10},()=>resources.run(resourceRoute,async resource=>resource.id)));
+    assert(resourceValues.every(value=>value===1));assert.equal(createdResources,1);
+    const resourceAdapter=createPooledAdapter({pool:resources,name:'fixture',capabilities:{transactions:true,isolationModes:['database-policy']},createAdapter:resource=>({name:'fixture',capabilities:{transactions:true,isolationModes:['database-policy']},run:async(_context,_route,work)=>work(resource)})});
+    assert.equal(await resourceAdapter.run({tenantId:'Org_A'},resourceRoute,async client=>client.id),1);
+    resources.setRoute({...resourceRoute,revision:'2'},'1');
+    await assert.rejects(resources.run(resourceRoute,async()=>assert.fail('retired resource')));
+    await resources.close();assert.equal(closedResources,1);
     let registryLoads=0;
     const registry=createCachedTenantRegistry({registry:{resolve:async(context,source)=>({tenantId:context.tenantId,source,adapter:'fixture',resource:'pool',revision:String(++registryLoads),status:'active',mode:'database-policy'})}});
     const routes=await Promise.all(Array.from({length:10},()=>registry.resolve({tenantId:'Org_A'},'orders')));
@@ -303,6 +321,7 @@ try {
     `
     import { createTenantGuard, createTenantRouter, type DatabaseAdapter } from '@tenantguard/core';
     import { createCachedTenantRegistry } from '@tenantguard/registry';
+    import {createTenantResourcePool,createPooledAdapter} from '@tenantguard/resources';
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
     import { createPgAdapter, type PgTenantClient } from '@tenantguard/postgres/pg';
@@ -312,6 +331,11 @@ try {
     import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
     import { createSqliteResource, createSqliteAdapter } from '@tenantguard/sqlite';
     import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
+    const resources=createTenantResourcePool({create:async()=>new pg.Pool({max:1}),destroy:async pool=>{await pool.end();}});
+    const pooled: DatabaseAdapter<PgTenantClient>=createPooledAdapter({pool:resources,name:'pg',capabilities:{transactions:true,isolationModes:['database-policy']},createAdapter:pool=>createPgAdapter({resolvePool:()=>pool,tables:[{schema:'public',table:'orders'}]})});
+    void pooled;await resources.close();
+    // @ts-expect-error Only object resources with owned cleanup are supported.
+    createTenantResourcePool({create:async()=>1,destroy:async()=>{}});
     const registry: import('@tenantguard/core').TenantRegistry = createCachedTenantRegistry({registry:{resolve:async()=>undefined},maxEntries:10});
     const cache=createCachedTenantRegistry({registry});
     cache.invalidate({tenantId:'Org_A'});await cache.close();
@@ -555,7 +579,7 @@ try {
     { cwd: mongooseTemporary, stdio: 'inherit' },
   );
   console.log(
-    'Packed core/registry/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed; isolated Mongoose driver closure passed',
+    'Packed core/registry/resources/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed; isolated Mongoose driver closure passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
