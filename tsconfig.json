@@ -22,7 +22,8 @@
       "@tenantguard/sqlserver": ["./packages/sqlserver/src/index.ts"],
       "@tenantguard/scoped-sql": ["./packages/scoped-sql/src/index.ts"],
       "@tenantguard/mysql": ["./packages/mysql/src/index.ts"],
-      "@tenantguard/mariadb": ["./packages/mariadb/src/index.ts"]
+      "@tenantguard/mariadb": ["./packages/mariadb/src/index.ts"],
+      "@tenantguard/mongodb": ["./packages/mongodb/src/index.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true

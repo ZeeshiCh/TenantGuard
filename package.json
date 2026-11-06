@@ -37,6 +37,7 @@
     "tarn": "^3.0.2",
     "testcontainers": "^11.14.0",
     "mysql2": "^3.24.6",
-    "mariadb": "^3.5.4"
+    "mariadb": "^3.5.4",
+    "mongodb": "^6.20.0"
   }
 }
