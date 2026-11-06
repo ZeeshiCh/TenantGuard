@@ -7,13 +7,14 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 const root = resolve('.');
 const temporary = mkdtempSync(join(tmpdir(), 'tenantguard-consumer-'));
-function installPacked(directory) {
+function installPacked(directory, externalPeers = false) {
   const packages = readdirSync(directory)
     .filter((file) => file.endsWith('.tgz'))
     .map((file) => join(directory, file));
@@ -22,6 +23,7 @@ function installPacked(directory) {
     [
       'install',
       '--offline',
+      ...(externalPeers ? ['--legacy-peer-deps'] : []),
       '--ignore-scripts',
       '--no-audit',
       '--no-fund',
@@ -393,6 +395,72 @@ try {
     ],
     { cwd: temporary, stdio: 'inherit' },
   );
+  // Exercise each framework's published declarations and actual peer graph independently.
+  for (const framework of ['express', 'fastify', 'koa']) {
+    const directory = join(temporary, framework + '-consumer');
+    mkdirSync(directory);
+    const graph = new Map();
+    pack(join(root, 'packages', framework), true, directory, graph);
+    pack(
+      dirname(
+        createRequire(join(root, 'package.json')).resolve(
+          '@types/node/package.json',
+        ),
+      ),
+      false,
+      directory,
+      graph,
+    );
+    writeFileSync(
+      join(directory, 'package.json'),
+      JSON.stringify({ private: true, type: 'module' }),
+    );
+    // Peers retain their installed dependency trees. Flattening Express's and its
+    // declaration packages' different content-type majors would change the graph.
+    installPacked(directory, true);
+    symlinkSync(
+      dirname(
+        createRequire(join(root, 'package.json')).resolve(
+          framework + '/package.json',
+        ),
+      ),
+      join(directory, 'node_modules', framework),
+      'dir',
+    );
+    const imports = `import {createTenantGuard} from '@tenantguard/core';
+      import {getTenant} from '@tenantguard/node';
+      import {${framework === 'fastify' ? 'tenantHook' : 'tenantMiddleware'} as tenant} from '@tenantguard/${framework}';
+      import Framework from '${framework}';`;
+    const usage =
+      framework === 'express'
+        ? `const app=Framework();app.use(tenant(createTenantGuard({authorize:async()=>({tenantId:'Org_A'})})));app.get('/',(_req,res)=>{res.json(getTenant());});`
+        : framework === 'fastify'
+          ? `const app=Framework();app.addHook('preHandler',tenant(createTenantGuard({authorize:async()=>({tenantId:'Org_A'})})));app.get('/',async()=>getTenant());await app.close();`
+          : `const app=new Framework();app.use(tenant(createTenantGuard({authorize:async()=>({tenantId:'Org_A'})})));app.use(async ctx=>{ctx.body=getTenant();});`;
+    writeFileSync(join(directory, 'consumer.ts'), imports + usage);
+    writeFileSync(join(directory, 'consumer.mjs'), imports + usage);
+    execFileSync(process.execPath, ['consumer.mjs'], {
+      cwd: directory,
+      stdio: 'inherit',
+    });
+    execFileSync(
+      process.execPath,
+      [
+        join(root, 'node_modules/typescript/bin/tsc'),
+        '--strict',
+        '--noEmit',
+        '--target',
+        'ES2022',
+        '--module',
+        'NodeNext',
+        '--moduleResolution',
+        'NodeNext',
+        'consumer.ts',
+      ],
+      { cwd: directory, stdio: 'inherit' },
+    );
+    console.log('Packed ' + framework + ' consumer passed');
+  }
   // Mongoose owns MongoDB driver 7; the existing direct adapter owns driver 6.
   // Verify each actual dependency closure independently, without flattening or
   // replacing either driver's BSON/session classes with another major version.
