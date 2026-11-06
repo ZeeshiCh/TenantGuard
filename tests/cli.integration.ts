@@ -393,12 +393,10 @@ test(
         await t.test(
           'MongoDB user-management privileges are reported as errors',
           async () => {
-            await db.admin
-              .db('admin')
-              .command({
-                grantRolesToUser: 'tenantguard_app',
-                roles: [{ role: 'userAdminAnyDatabase', db: 'admin' }],
-              });
+            await db.admin.db('admin').command({
+              grantRolesToUser: 'tenantguard_app',
+              roles: [{ role: 'userAdminAnyDatabase', db: 'admin' }],
+            });
             const report = await cli('audit', path, env);
             assert.equal(report.exitCode, 1, JSON.stringify(report));
             assert(codes(report).includes('MONGO.ROLE_PRIVILEGED'));

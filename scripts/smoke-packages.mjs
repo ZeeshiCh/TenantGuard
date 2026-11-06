@@ -463,6 +463,73 @@ try {
     ],
     { cwd: temporary, stdio: 'inherit' },
   );
+  // Install the CLI and both published diagnostic tools without workspace links.
+  const cliDirectory = join(temporary, 'cli-consumer');
+  mkdirSync(cliDirectory);
+  pack(join(root, 'packages/cli'), true, cliDirectory, new Map());
+  writeFileSync(
+    join(cliDirectory, 'package.json'),
+    JSON.stringify({ private: true, type: 'module' }),
+  );
+  installPacked(cliDirectory);
+  writeFileSync(
+    join(cliDirectory, 'consumer.mjs'),
+    `
+    import assert from 'node:assert/strict';
+    import {writeFileSync, readFileSync} from 'node:fs';
+    import {resolve} from 'node:path';
+    import {execFileSync} from 'node:child_process';
+    import {DatabaseSync} from 'node:sqlite';
+    import {main,parseDiagnosticConfig} from '@tenantguard/cli';
+    let help=''; assert.equal(await main(['--help'],{write:value=>{help+=value}}),0);
+    assert.match(help,/doctor/);
+    const filename=resolve('diagnostics.sqlite');
+    const db=new DatabaseSync(filename);
+    db.exec('CREATE TABLE orders(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL);CREATE INDEX tenant_orders ON orders(tenant_id)'); db.close();
+    const config={version:1,sources:[{name:'local',engine:'sqlite',mode:'application-filter',filenameEnv:'TG_FILE',targets:[{table:'orders',tenantColumn:'tenant_id'}]}]};
+    assert.equal(parseDiagnosticConfig(config).sources.length,1);
+    writeFileSync('diagnostics.json',JSON.stringify(config));
+    const before=readFileSync(filename);
+    for(const args of [['doctor'],['audit'],['doctor','--connect']]) {
+      const report=JSON.parse(execFileSync(resolve('node_modules/.bin/tenantguard'),[...args,'--config','diagnostics.json','--json'],{encoding:'utf8',env:{...process.env,TG_FILE:filename}}));
+      assert.equal(report.exitCode,0); assert.equal(report.complete,true);
+      assert.equal(report.connected,args[0]==='audit'||args.includes('--connect'));
+      if(args.includes('--connect')) assert.ok(report.findings.some(f=>f.code==='TOOL.DEPLOY_DOCTOR'));
+      assert.deepEqual(readFileSync(filename),before);
+    }
+  `,
+  );
+  execFileSync(process.execPath, ['consumer.mjs'], {
+    cwd: cliDirectory,
+    stdio: 'inherit',
+  });
+  writeFileSync(
+    join(cliDirectory, 'consumer.ts'),
+    `
+    import {diagnose,main,parseDiagnosticConfig,type DiagnosticReport} from '@tenantguard/cli';
+    const config=parseDiagnosticConfig({version:1,sources:[]});
+    const result=await diagnose(['--help']);
+    if(!('help' in result)){const report:DiagnosticReport=result;void report.scope;}
+    void config;void main;
+  `,
+  );
+  execFileSync(
+    process.execPath,
+    [
+      join(root, 'node_modules/typescript/bin/tsc'),
+      '--strict',
+      '--noEmit',
+      '--skipLibCheck',
+      '--target',
+      'ES2022',
+      '--module',
+      'NodeNext',
+      '--moduleResolution',
+      'NodeNext',
+      'consumer.ts',
+    ],
+    { cwd: cliDirectory, stdio: 'inherit' },
+  );
   // Exercise each framework's published declarations and actual peer graph independently.
   for (const framework of ['express', 'fastify', 'koa']) {
     const directory = join(temporary, framework + '-consumer');
