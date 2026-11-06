@@ -5,7 +5,7 @@ Implemented foundation, November 6, 2026. The broader [implementation plan](impl
 ## Dependency direction
 
 ```text
-Framework (Fetch / Hono / NestJS / other backend)
+Framework (Fetch / Hono / NestJS / Express / Fastify / Koa / other backend)
     -> TenantGuard authorizer -> immutable explicit TenantContext
     -> portable multi-source router -> DatabaseAdapter<Client>
     -> driver-owned transaction/session -> database
@@ -17,7 +17,7 @@ Core contains no Node, framework, driver or ORM imports. It accepts opaque, case
 
 `createTenantGuard({ authorize, carrier? })` is the common entry point. `authorize` receives a framework-specific input and must return a tenant context only after authentication, membership and tenant-status checks. Returning undefined denies access; provider failures propagate. Context snapshots are frozen and contain only tenantId, optional principalId and optional correlationId. No credentials are carried in request context.
 
-`guard.run(input, context => ...)` works without any ambient state. Fetch handlers and Hono context variables use this explicit context. On Node, supply `nodeContext` or an isolated `createNodeContextCarrier()` for asynchronous propagation. The default Node carrier is shared by NestJS and legacy TypeORM convenience helpers. Custom carriers must be passed explicitly and do not affect those helpers.
+`guard.run(input, context => ...)` works without any ambient state. Fetch handlers and Hono context variables use this explicit context. On Node, supply `nodeContext` or an isolated `createNodeContextCarrier()` for asynchronous propagation. The default Node carrier is shared by Express, Fastify, Koa, NestJS and legacy TypeORM convenience helpers. Custom carriers must be passed explicitly and do not affect those helpers.
 
 `createTenantContext`, `runWithContext` and `runWithTenant` are trusted application primitives, not authentication APIs or unforgeable security tokens. Application code and configured plugins are trusted. Core does not defend against arbitrary malicious application code or SQL injection.
 
@@ -78,6 +78,7 @@ See the [shared guide](../packages/scoped-sql/README.md). The compiler source ha
 | Fetch                           | Request handler wrapper; explicit context                                                                                                                    | Platform-specific runtime certification                                                                              |
 | Hono                            | Typed middleware; explicit context or supplied Node carrier; request-level concurrency tests                                                                 | Bun/Deno/Workers certification, full HTTP server example                                                             |
 | NestJS                          | Authorizer option, legacy resolver, interceptor/decorator; subscription lifecycle tests                                                                      | Full HTTP/e2e and non-HTTP integrations                                                                              |
+| Express / Fastify / Koa         | Guard authorization, shared Node context, custom carriers; real HTTP isolation, error and disconnect tests on majors 5 / 5 / 3                               | Other majors, WebSockets, workers and long-lived streaming certification                                             |
 | PostgreSQL                      | UUID policies, direct pg adapter with guarded lifecycle, TypeORM helpers; shared real-database conformance                                                   | Policy-expression analysis, partition/proxy certification and TypeORM lifecycle parity                               |
 | SQL Server                      | Native RLS policy helpers, dedicated Tedious pool, verified session cleanup, real conformance/lifecycle tests                                                | Azure SQL, authentication/runtime/version expansion and policy audit CLI                                             |
 | MongoDB                         | Scoped JSON CRUD and single-stream aggregation, replica-set transactions, bounded session cleanup; real conformance                                          | Application filtering only; standalone/sharded deployments and arbitrary BSON/pipelines are deferred                 |
@@ -127,3 +128,9 @@ Each scope creates a fresh physical connection, pins Drizzle to it and owns Seri
 The direct MongoDB and Mongoose adapters now share the driver-independent scoped-mongo ownership/aggregation policy. Mongoose creates an isolated instance/connection/model registry from declared scalar fields, with buffering, automatic DDL, implicit casts and application model features excluded. The public facade returns plain rows/counts rather than queries, hydrated documents or native handles. Every model operation carries explicit scalar ownership and binary collation.
 
 Replica-set metadata precedes session creation. Each scope explicitly starts a snapshot/majority transaction and serializes Mongoose calls on its owned session, without callback retry helpers. Actual native promises remain tracked past request deadlines; cleanup drains them before abort/endSession, including late session acquisition. Uncertain cleanup/commit or socket failure terminally destroys the connection against reuse. See the [Mongoose guide](../packages/mongoose/README.md) for the restricted model API and tested failure/retirement behavior.
+
+## Express, Fastify and Koa lifecycle
+
+Express middleware and Fastify callback-style preHandler hooks call their continuation inside the default Node carrier after guard authorization. Koa wraps await next() in the scope. The guard's own optional carrier is preserved as well. Authorization denial ends the request with 403; provider failures, invalid contexts and downstream errors retain framework error handling. No client-supplied tenant header or mutable request field becomes trusted context.
+
+The same real TCP HTTP conformance suite checks Express 5, Fastify 5 and Koa 3 with overlapping requests, distinct principals, case-sensitive tenants, public routes, provider/handler failures, custom carriers and disconnects. Koa upstream error middleware resumes outside the nested scope; Express/Fastify downstream error handlers inherit it. Packed adapters have strict TypeScript/JavaScript consumers using the installed framework peer trees, preserving transitive dependency versions. They execute in the Node application process and work with every explicit-context database router; no separate service is deployed. Streaming protocols, workers and automatic cancellation/revocation of detached resources remain outside this certification.
