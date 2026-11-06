@@ -18,3 +18,4 @@ export async function assertTenantIsolation<T>(options: {
       throw new Error('Cross-tenant data exposure detected');
   }
 }
+export * from './conformance.js';
