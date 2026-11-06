@@ -26,7 +26,8 @@
       "@tenantguard/mongodb": ["./packages/mongodb/src/index.ts"],
       "@tenantguard/sqlite": ["./packages/sqlite/src/index.ts"],
       "@tenantguard/scoped-sql/compiler": ["./packages/scoped-sql/src/crud.ts"],
-      "@tenantguard/prisma": ["./packages/prisma/src/index.ts"]
+      "@tenantguard/prisma": ["./packages/prisma/src/index.ts"],
+      "@tenantguard/drizzle": ["./packages/drizzle/src/index.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true

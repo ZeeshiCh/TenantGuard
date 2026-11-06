@@ -1,0 +1,26 @@
+{
+  "name": "@tenantguard/drizzle",
+  "version": "0.0.0",
+  "description": "TenantGuard scoped Drizzle CRUD and owned native transactions",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@tenantguard/core": "workspace:*",
+    "@tenantguard/scoped-sql": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "pg": "^8.16.0",
+    "mysql2": "^3.24.6"
+  }
+}
