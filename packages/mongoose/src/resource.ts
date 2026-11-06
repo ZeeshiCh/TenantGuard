@@ -5,7 +5,11 @@ import {
   type Model,
   type PipelineStage,
 } from 'mongoose';
-import { identifier, type MongoCollection } from '@tenantguard/scoped-mongo';
+import {
+  identifier,
+  MongoSafetyError,
+  type MongoCollection,
+} from '@tenantguard/scoped-mongo';
 import {
   validateMongooseModel,
   type MongooseModel,
@@ -179,7 +183,12 @@ export function createMongooseResource(options: {
         cast: false;
       }
     > = {};
-    for (const [key, field] of Object.entries(model.fields))
+    const reserved = (
+      base.Schema as unknown as { reserved: Record<string, boolean> }
+    ).reserved;
+    for (const [key, field] of Object.entries(model.fields)) {
+      if (Object.hasOwn(reserved, key))
+        throw new MongoSafetyError('Reserved Mongoose document path');
       definition[key] = {
         type:
           field.type === 'string'
@@ -190,6 +199,7 @@ export function createMongooseResource(options: {
         required: field.required === true,
         cast: false,
       };
+    }
     const schema = new base.Schema(definition, {
       collection: model.spec.collection,
       strict: 'throw',
@@ -201,6 +211,27 @@ export function createMongooseResource(options: {
       id: false,
       minimize: false,
     });
+    // Mongoose SchemaType defaults are shared across instances. Reject inherited
+    // behavior rather than allowing setters/defaults to rewrite tenant identity.
+    for (const key of Object.keys(model.fields)) {
+      const path = schema.path(key);
+      const transforms = path as unknown as {
+        getters: unknown[];
+        setters: unknown[];
+      };
+      if (
+        !Array.isArray(transforms.getters) ||
+        !Array.isArray(transforms.setters) ||
+        transforms.getters.length ||
+        transforms.setters.length ||
+        Object.keys(path.options).some(
+          (option) => !['type', 'required', 'cast'].includes(option),
+        )
+      )
+        throw new MongoSafetyError(
+          'Inherited Mongoose schema-type transforms/defaults are unsupported',
+        );
+    }
     models.set(
       alias,
       connection.model<Record<string, unknown>>(

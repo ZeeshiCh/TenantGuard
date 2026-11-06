@@ -347,3 +347,55 @@ test('Mongoose transport errors interrupt hanging business callbacks and end the
   assert.ok(f.ended);
   assert.ok(!f.events.includes('commit'));
 });
+test('Mongoose global SchemaType transforms and defaults fail closed before opening connections', async () => {
+  const mongoose = await import('mongoose');
+  const { createMongooseResource } =
+    await import('../packages/mongoose/src/index.js');
+  const StringType = mongoose.default.Schema.Types.String,
+    previous = { ...StringType.defaultOptions };
+  try {
+    for (const [option, value] of [
+      ['lowercase', true],
+      ['default', 'foreign'],
+      ['set', (value: unknown) => String(value).toLowerCase()],
+    ]) {
+      StringType.defaultOptions = { ...previous };
+      StringType.set(String(option), value);
+      assert.throws(
+        () =>
+          createMongooseResource({
+            uri: 'mongodb://localhost:27017',
+            database: 'example',
+            models,
+          }),
+        /Inherited Mongoose/,
+      );
+    }
+  } finally {
+    StringType.defaultOptions = previous;
+  }
+  const resource = createMongooseResource({
+    uri: 'mongodb://localhost:27017',
+    database: 'example',
+    models,
+  });
+  await resource.close();
+});
+test('Mongoose reserved document paths cannot shadow model lifecycle methods', async () => {
+  const { createMongooseResource } =
+    await import('../packages/mongoose/src/index.js');
+  assert.throws(
+    () =>
+      createMongooseResource({
+        uri: 'mongodb://localhost:27017',
+        database: 'example',
+        models: {
+          orders: {
+            ...models.orders,
+            fields: { ...models.orders.fields, save: { type: 'string' } },
+          },
+        },
+      }),
+    /Reserved Mongoose/,
+  );
+});
