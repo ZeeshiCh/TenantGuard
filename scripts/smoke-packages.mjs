@@ -87,6 +87,7 @@ try {
     'mariadb',
     'mongodb',
     'sqlite',
+    'prisma',
   ])
     pack(join(root, 'packages', name), true);
   pack(
@@ -115,6 +116,68 @@ try {
     ],
     { cwd: temporary, stdio: 'pipe' },
   );
+  // Execute the installed companion generator through the real Prisma CLI.
+  writeFileSync(
+    join(temporary, 'metadata.prisma'),
+    `
+    generator tenantguard {
+      provider = env("TENANTGUARD_PRISMA_GENERATOR")
+      output = "./tenantguard-metadata"
+    }
+    datasource db {
+ provider = "postgresql"
+ }
+    model Order {
+      id String @id
+      tenantId String @map("tenant_id")
+      value String
+      @@map("orders")
+    }
+  `,
+  );
+  const quoteGeneratorPath = (value) =>
+    "'" + value.replaceAll("'", "'\\''") + "'";
+  execFileSync(
+    process.execPath,
+    [
+      join(
+        dirname(
+          createRequire(join(root, 'package.json')).resolve(
+            'prisma/package.json',
+          ),
+        ),
+        'build/index.js',
+      ),
+      'generate',
+      '--schema',
+      join(temporary, 'metadata.prisma'),
+    ],
+    {
+      cwd: temporary,
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        TENANTGUARD_PRISMA_GENERATOR: [
+          process.execPath,
+          join(temporary, 'node_modules/@tenantguard/prisma/dist/generator.js'),
+        ]
+          .map(quoteGeneratorPath)
+          .join(' '),
+      },
+    },
+  );
+  const generatedMetadata = JSON.parse(
+    readFileSync(
+      join(temporary, 'tenantguard-metadata/datamodel.json'),
+      'utf8',
+    ),
+  );
+  if (
+    generatedMetadata.models[0]?.fields.find(
+      (field) => field.name === 'tenantId',
+    )?.dbName !== 'tenant_id'
+  )
+    throw new Error('Packed Prisma generator lost mapped scalar metadata');
   writeFileSync(
     join(temporary, 'consumer.mjs'),
     `
@@ -129,6 +192,10 @@ try {
     import { createMariadbPool, createMariadbAdapter } from '@tenantguard/mariadb';
     import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
     import { createSqliteResource, createSqliteAdapter } from '@tenantguard/sqlite';
+    import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
+    const prismaDatamodel={models:[{name:'Order',dbName:'orders',fields:['id','tenantId','value'].map(name=>({name,kind:'scalar',type:'String',isList:false,isRequired:true}))}]};
+    const prismaResource=createPrismaResource({provider:'postgresql',datamodel:prismaDatamodel,createClient:()=>({$transaction:async work=>work({$queryRawUnsafe:async()=>[{safe:true}]}),$disconnect:async()=>{}})});
+    const prismaAdapter=createPrismaAdapter({resolveResource:()=>prismaResource,models:{orders:{model:'Order',tenantField:'tenantId',idField:'id',fields:['id','tenantId','value']}}});
     const mongoResource = createMongoResource({ uri: 'mongodb://localhost:27017', database: 'example' });
     const mongoAdapter = createMongoAdapter({ resolveResource: () => mongoResource, collections: { orders: { collection: 'orders', tenantField: 'tenantId', idField: 'id', fields: ['id', 'tenantId', 'value'] } } });
     await mongoResource.close();
@@ -155,6 +222,10 @@ try {
       assert.throws(() => createTenantRouter({ strict: true, sources: {orders: {adapter: sqliteAdapter, mode: 'application-filter'}}, registry: {resolve: async()=>undefined} }));
     } finally { await sqliteResource.close(); }
     assert.equal(adapter.name, 'pg');
+    assert.equal(prismaAdapter.name,'prisma');
+    assert.throws(()=>createTenantRouter({strict:true,sources:{orders:{adapter:prismaAdapter,mode:'application-filter'}},registry:{resolve:async()=>undefined}}));
+    await prismaAdapter.run({tenantId:'Org_A'},{tenantId:'Org_A',adapter:'prisma',source:'orders',resource:'test',revision:'1',status:'active',mode:'application-filter'},async()=>{});
+    await prismaResource.close();
     assert.equal(mongoAdapter.name, 'mongodb');
     assert.throws(() => createTenantRouter({ strict: true, sources: { orders: { adapter: mongoAdapter, mode: 'application-filter' } }, registry: { resolve: async () => undefined } }));
     await pool.end();
@@ -189,6 +260,10 @@ try {
     import { createMariadbPool, createMariadbAdapter } from '@tenantguard/mariadb';
     import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
     import { createSqliteResource, createSqliteAdapter } from '@tenantguard/sqlite';
+    import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
+    const prismaDatamodel={models:[{name:'Order',dbName:'orders',fields:['id','tenantId','value'].map(name=>({name,kind:'scalar',type:'String',isList:false,isRequired:true}))}]};
+    const prismaResource=createPrismaResource({provider:'postgresql',datamodel:prismaDatamodel,createClient:()=>({$transaction:async work=>work({$queryRawUnsafe:async()=>[{safe:true}]}),$disconnect:async()=>{}})});
+    const prismaAdapter=createPrismaAdapter({resolveResource:()=>prismaResource,models:{orders:{model:'Order',tenantField:'tenantId',idField:'id',fields:['id','tenantId','value']}}});
     const mongoResource = createMongoResource({ uri: 'mongodb://localhost:27017', database: 'example' });
     const mongoAdapter = createMongoAdapter({ resolveResource: () => mongoResource, collections: { orders: { collection: 'orders', tenantField: 'tenantId', idField: 'id', fields: ['id', 'tenantId', 'value'] } } });
     await mongoResource.close();
@@ -219,6 +294,8 @@ try {
     const sqliteResource = createSqliteResource({filename: '/existing/server-owned/orders.sqlite'});
     const typedSqlite: DatabaseAdapter<import('@tenantguard/sqlite').SqliteScopedClient> = createSqliteAdapter({resolveResource: () => sqliteResource, tables});
     void typedSqlite;
+    const typedPrisma: DatabaseAdapter<import('@tenantguard/prisma').PrismaScopedClient> = prismaAdapter;
+    void typedPrisma;
   `,
   );
   execFileSync(
@@ -238,7 +315,7 @@ try {
     { cwd: temporary, stdio: 'inherit' },
   );
   console.log(
-    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite: clean offline JavaScript and TypeScript consumers passed',
+    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma: clean offline JavaScript and TypeScript consumers passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });

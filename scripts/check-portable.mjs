@@ -5,6 +5,7 @@ for (const [name, entryPoint] of [
   ['core', 'packages/core/src/index.ts'],
   ['fetch', 'packages/fetch/src/index.ts'],
   ['hono', 'packages/hono/src/index.ts'],
+  ['prisma/guards', 'packages/prisma/src/guards.ts'],
   ['mongodb/guards', 'packages/mongodb/src/guards.ts'],
   ['scoped-sql/compiler', 'packages/scoped-sql/src/crud.ts'],
 ]) {
