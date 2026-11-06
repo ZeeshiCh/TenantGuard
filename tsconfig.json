@@ -33,7 +33,8 @@
       "@tenantguard/scoped-mongo": ["./packages/scoped-mongo/src/index.ts"],
       "@tenantguard/express": ["./packages/express/src/index.ts"],
       "@tenantguard/fastify": ["./packages/fastify/src/index.ts"],
-      "@tenantguard/koa": ["./packages/koa/src/index.ts"]
+      "@tenantguard/koa": ["./packages/koa/src/index.ts"],
+      "@tenantguard/registry": ["./packages/registry/src/index.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true

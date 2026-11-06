@@ -329,6 +329,12 @@ importers:
         specifier: workspace:*
         version: link:../scoped-sql
 
+  packages/registry:
+    dependencies:
+      '@tenantguard/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/scoped-mongo: {}
 
   packages/scoped-sql:
