@@ -432,3 +432,47 @@ test('reentrant clock closure cannot admit a new lookup or insert an old result'
   assert.equal(calls, 0);
   await cache.close();
 });
+
+test('absolute deadlines reject late success even before the timer callback can execute', async () => {
+  let time = 0;
+  const old = deferred<TenantRoute>();
+  const cache = createCachedTenantRegistry({
+    registry: { resolve: () => old.promise },
+    clock: () => time,
+    lookupTimeoutMs: 1000,
+  });
+  const request = assert.rejects(
+    cache.resolve(context, 'orders'),
+    RegistryCacheTimeoutError,
+  );
+  await tick();
+  time = 1000;
+  old.resolve(route());
+  await request;
+  assert.equal(cache.stats().entries, 0);
+  assert.equal(cache.stats().pending, 0);
+  await cache.close();
+});
+test('coalescing cannot return a lookup whose absolute deadline has elapsed', async () => {
+  let time = 0;
+  const old = deferred<TenantRoute>();
+  const cache = createCachedTenantRegistry({
+    registry: { resolve: () => old.promise },
+    clock: () => time,
+    lookupTimeoutMs: 1000,
+  });
+  const request = assert.rejects(
+    cache.resolve(context, 'orders'),
+    RegistryCacheTimeoutError,
+  );
+  await tick();
+  time = 1000;
+  await assert.rejects(
+    cache.resolve(context, 'orders'),
+    RegistryCacheTimeoutError,
+  );
+  await request;
+  old.resolve(route());
+  await cache.close();
+  assert.equal(cache.stats().entries, 0);
+});

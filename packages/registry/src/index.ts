@@ -63,6 +63,7 @@ interface Flight {
   readonly tenantId: string;
   readonly source: string;
   readonly promise: Promise<TenantRoute | undefined>;
+  readonly deadline: number;
   reject(error: unknown): void;
   timer?: ReturnType<typeof setTimeout>;
   active: boolean;
@@ -210,7 +211,11 @@ export function createCachedTenantRegistry(
       }
       entries.delete(key);
       const existing = flights.get(key);
-      if (existing) return existing.promise;
+      if (existing) {
+        if (time >= existing.deadline)
+          retire(key, existing, new RegistryCacheTimeoutError());
+        return existing.promise;
+      }
       if (pending.size >= maxPending) throw new RegistryCacheCapacityError();
       let accept!: (route: TenantRoute | undefined) => void;
       let reject!: (error: unknown) => void;
@@ -222,6 +227,7 @@ export function createCachedTenantRegistry(
         tenantId: trusted.tenantId,
         source,
         promise,
+        deadline: time + timeout,
         reject,
         active: true,
       };
@@ -250,6 +256,10 @@ export function createCachedTenantRegistry(
               const time = now();
               // Provider accessors and custom clocks can reenter invalidation/close.
               if (!flight.active) return;
+              if (time >= flight.deadline) {
+                retire(key, flight, new RegistryCacheTimeoutError());
+                return;
+              }
               if (lifetime > 0) {
                 for (const [key, entry] of entries)
                   if (time >= entry.expires) entries.delete(key);
