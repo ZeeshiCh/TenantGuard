@@ -89,6 +89,18 @@ export function validateDrizzleTable(
     throw new DrizzleSafetyError(
       'Declare distinct tenant/ID and unique columns',
     );
+  for (const [key, column] of Object.entries(all)) {
+    const descriptor = Object.getOwnPropertyDescriptor(input.table, key);
+    if (
+      !descriptor ||
+      !('value' in descriptor) ||
+      descriptor.value !== column ||
+      column.table !== input.table
+    )
+      throw new DrizzleSafetyError(
+        'Use concrete Drizzle tables, not aliases or proxy projections',
+      );
+  }
   // Drizzle can execute runtime defaults/hooks even for columns omitted by the application.
   for (const column of Object.values(all))
     if (
@@ -166,18 +178,24 @@ export function drizzleCompiler(spec: ValidatedDrizzleTable, tenantId: string) {
     const data = scalarFields(input, spec);
     if (writing && !Object.keys(data).some((k) => k !== spec.tenantColumn))
       throw new DrizzleSafetyError('Writes require a non-tenant filter');
-    const exact =
+    const exact = (identity: string) =>
       spec.provider === 'postgresql'
-        ? sql`${owner} COLLATE "C" = ${tenantId}`
-        : sql`BINARY ${owner} = BINARY ${tenantId}`;
+        ? sql`${owner} COLLATE "C" = ${identity}`
+        : sql`BINARY ${owner} = BINARY ${identity}`;
     const clauses = [
       eq(owner, tenantId),
-      exact,
-      ...Object.entries(data).map(([key, value]) =>
-        value === null
-          ? isNull(spec.fields[key]!)
-          : eq(spec.fields[key]!, value),
-      ),
+      exact(tenantId),
+      ...Object.entries(data).map(([key, value]) => {
+        if (value === null) return isNull(spec.fields[key]!);
+        if (key === spec.tenantColumn) {
+          if (typeof value !== 'string')
+            throw new DrizzleSafetyError(
+              'Tenant filters require string values',
+            );
+          return exact(value);
+        }
+        return eq(spec.fields[key]!, value);
+      }),
     ];
     return and(...clauses)!;
   };

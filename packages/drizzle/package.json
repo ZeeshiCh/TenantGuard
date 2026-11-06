@@ -21,6 +21,7 @@
     "@tenantguard/scoped-sql": "workspace:*",
     "drizzle-orm": "0.45.4",
     "pg": "^8.16.0",
-    "mysql2": "^3.24.6"
+    "mysql2": "^3.24.6",
+    "@types/pg": "^8.16.0"
   }
 }

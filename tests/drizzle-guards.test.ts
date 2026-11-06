@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sql } from 'drizzle-orm';
-import { pgTable, text } from 'drizzle-orm/pg-core';
+import { pgTable, text, alias } from 'drizzle-orm/pg-core';
 import { mysqlTable, varchar } from 'drizzle-orm/mysql-core';
 import {
   validateDrizzleTable,
@@ -104,5 +104,12 @@ test('Drizzle compiler snapshots mutable values before queueing', () => {
         },
       }),
     /Accessors/,
+  );
+});
+
+test('Drizzle aliases cannot point metadata checks at a different physical table', () => {
+  assert.throws(
+    () => validateDrizzleTable({ table: alias(pg, 'other'), ...definition }),
+    /concrete Drizzle tables/,
   );
 });
