@@ -132,6 +132,7 @@ export function createPgLifecycleStore(
   const controls = new AsyncLocalStorage<{
     key: string;
     live: () => boolean;
+    read: (key: LifecycleKey) => Promise<Readonly<LifecycleState> | undefined>;
     execute: <T>(
       work: (
         transaction: LifecycleTransaction<PgLifecycleExecution>,
@@ -364,7 +365,17 @@ export function createPgLifecycleStore(
         kind === 'read'
           ? await action()
           : await controls.run(
-              { key: keyString(key), live: () => live && !broken, execute },
+              {
+                key: keyString(key),
+                live: () => live && !broken,
+                read: (input) =>
+                  session(
+                    keySnapshot(input),
+                    () => live && !broken,
+                    track,
+                  ).read(),
+                execute,
+              },
               action,
             );
       if (pending.size || failed || broken)
@@ -395,7 +406,13 @@ export function createPgLifecycleStore(
   }
   return Object.freeze({
     async read(input: LifecycleKey) {
-      return scope(input, 'read', async (transaction) => transaction.read());
+      const key = keySnapshot(input),
+        context = controls.getStore();
+      if (context) {
+        if (!context.live()) throw new LifecycleClosedError();
+        return context.read(key);
+      }
+      return scope(key, 'read', async (transaction) => transaction.read());
     },
     withControlLock: <T>(
       key: LifecycleKey,

@@ -731,6 +731,15 @@ test(
           });
           const controller = createTenantLifecycle({
             store: bounded,
+            onChange: async (state) => {
+              assert.equal(
+                (await bounded.read({
+                  tenantId: state.route.tenantId,
+                  source: state.route.source,
+                }))!.version,
+                state.version,
+              );
+            },
             maxOperations: 6,
             operationTimeoutMs: 2000,
           });
