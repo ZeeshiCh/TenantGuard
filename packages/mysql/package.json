@@ -1,0 +1,25 @@
+{
+  "name": "@tenantguard/mysql",
+  "version": "0.0.0",
+  "description": "TenantGuard mysql scoped CRUD",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@tenantguard/core": "workspace:*",
+    "@tenantguard/scoped-sql": "workspace:*",
+    "mysql2": "^3.24.6"
+  },
+  "peerDependencies": {}
+}

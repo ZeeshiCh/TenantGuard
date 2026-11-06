@@ -35,6 +35,8 @@
     "esbuild": "^0.28.2",
     "tedious": "^19.0.0",
     "tarn": "^3.0.2",
-    "testcontainers": "^11.14.0"
+    "testcontainers": "^11.14.0",
+    "mysql2": "^3.24.6",
+    "mariadb": "^3.5.4"
   }
 }

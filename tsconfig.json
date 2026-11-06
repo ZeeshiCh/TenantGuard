@@ -19,7 +19,10 @@
       "@tenantguard/fetch": ["./packages/fetch/src/index.ts"],
       "@tenantguard/hono": ["./packages/hono/src/index.ts"],
       "@tenantguard/postgres/pg": ["./packages/postgres/src/pg.ts"],
-      "@tenantguard/sqlserver": ["./packages/sqlserver/src/index.ts"]
+      "@tenantguard/sqlserver": ["./packages/sqlserver/src/index.ts"],
+      "@tenantguard/scoped-sql": ["./packages/scoped-sql/src/index.ts"],
+      "@tenantguard/mysql": ["./packages/mysql/src/index.ts"],
+      "@tenantguard/mariadb": ["./packages/mariadb/src/index.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true
