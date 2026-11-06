@@ -88,20 +88,26 @@ export function createTenantLifecycle<Native>(options: {
         expired = true;
         reject(new LifecycleTimeoutError('operation'));
       }, operationTimeout);
-      void actual
-        .then((value) => {
+      const finish = () => {
+        clearTimeout(timer);
+        pending.delete(actual);
+        checkClose();
+      };
+      void actual.then(
+        (value) => {
+          finish();
           try {
             check();
             resolve(value);
           } catch (error) {
             reject(error);
           }
-        }, reject)
-        .finally(() => {
-          clearTimeout(timer);
-          pending.delete(actual);
-          checkClose();
-        });
+        },
+        (error) => {
+          finish();
+          reject(error);
+        },
+      );
     });
   }
   function execute(
@@ -276,15 +282,21 @@ export function createTenantLifecycle<Native>(options: {
         operationId: string;
       },
     ) {
-      const key = keySnapshot(command.key);
+      const key = keySnapshot(command.key),
+        input = {
+          work: command.work,
+          verify: command.verify,
+          expectedVersion: command.expectedVersion,
+          operationId: command.operationId,
+        };
       return manage(async (check) => {
         const current = await store.read(key);
         check();
-        if (!current?.operation || current.operation.id !== command.operationId)
+        if (!current?.operation || current.operation.id !== input.operationId)
           throw new LifecycleConflictError();
         return execute(
           {
-            ...command,
+            ...input,
             route: current.operation.target,
             schemaVersion: current.operation.schemaVersion,
           },
@@ -330,13 +342,16 @@ export function createTenantLifecycle<Native>(options: {
       if (closing) return closing;
       closed = true;
       closing = new Promise<void>((resolve, reject) => {
+        const deadline = performance.now() + shutdownTimeout;
         const timer = setTimeout(
           () => reject(new LifecycleTimeoutError('shutdown')),
           shutdownTimeout,
         );
         finishClose = () => {
           clearTimeout(timer);
-          resolve();
+          if (performance.now() >= deadline)
+            reject(new LifecycleTimeoutError('shutdown'));
+          else resolve();
         };
       });
       void closing.catch(() => {});
@@ -367,9 +382,14 @@ export function createLifecycleAdapter<Native, Client>(options: {
 }): DatabaseAdapter<Client> {
   const store = options.store,
     adapter = options.adapter;
+  const name = adapter.name,
+    capabilities = Object.freeze({
+      transactions: adapter.capabilities.transactions,
+      isolationModes: Object.freeze([...adapter.capabilities.isolationModes]),
+    });
   return Object.freeze({
-    name: adapter.name,
-    capabilities: adapter.capabilities,
+    name,
+    capabilities,
     async run<T>(
       context: Parameters<DatabaseAdapter<Client>['run']>[0],
       value: Readonly<TenantRoute>,
@@ -377,7 +397,11 @@ export function createLifecycleAdapter<Native, Client>(options: {
     ): Promise<T> {
       const trusted = createTenantContext(context),
         route = routeSnapshot(value);
-      if (trusted.tenantId !== route.tenantId)
+      if (
+        trusted.tenantId !== route.tenantId ||
+        route.adapter !== name ||
+        !capabilities.isolationModes.includes(route.mode)
+      )
         throw new LifecycleConflictError();
       return store.withAdmission(keySnapshot(route), async (reader) => {
         const state = await reader.read();

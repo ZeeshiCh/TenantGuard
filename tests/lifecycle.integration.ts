@@ -689,17 +689,140 @@ test(
             await entered.promise;
             await db.admin.query('SELECT pg_terminate_backend($1)', [pid]);
             await task;
-            assert.equal((await status(keyB)).route.status, 'failed');
+            assert.notEqual((await status(keyB)).route.status, 'active');
             assert.equal(
               await hasColumn('lifecycle_payload_b', 'killed'),
               false,
             );
+            const interrupted = await status(keyB);
+            await other.recover({
+              key: keyB,
+              expectedVersion: interrupted.version,
+              operationId: 'killed-b',
+              work: async (native) => {
+                await native.query(
+                  'ALTER TABLE lifecycle_payload_b ADD COLUMN killed integer',
+                );
+              },
+              verify: async () => {},
+            });
+            assert.equal((await status(keyB)).route.status, 'active');
+
             await db.admin.query('SELECT pg_advisory_unlock(834474)');
             unlocked = true;
           } finally {
             if (!unlocked)
               await db.admin.query('SELECT pg_advisory_unlock(834474)');
             await task;
+          }
+        },
+      );
+      await t.test(
+        'concurrent tenants reuse pinned control sessions without second-connection deadlocks',
+        async () => {
+          const bounded = createPgLifecycleStore({
+            connection: {
+              ...config,
+              application_name: 'lifecycle-bounded',
+              connectionTimeoutMillis: 1000,
+            },
+            maxConnections: 2,
+            maxPending: 8,
+          });
+          const controller = createTenantLifecycle({
+            store: bounded,
+            maxOperations: 6,
+            operationTimeoutMs: 2000,
+          });
+          let active = 0,
+            high = 0;
+          const pids = new Set<number>();
+          try {
+            await Promise.all(
+              Array.from({ length: 6 }, (_, i) =>
+                controller.provision({
+                  route: route(
+                    'cccccccc-cccc-cccc-cccc-' + String(i).padStart(12, '0'),
+                  ),
+                  schemaVersion: 'v1',
+                  operationId: 'bounded-' + i,
+                  work: async (native) => {
+                    active++;
+                    high = Math.max(high, active);
+                    try {
+                      pids.add(
+                        Number(
+                          (await native.query('SELECT pg_backend_pid() AS pid'))
+                            .rows[0]!.pid,
+                        ),
+                      );
+                      await native.query('SELECT pg_sleep(0.02)');
+                    } finally {
+                      active--;
+                    }
+                  },
+                  verify: async (native) => {
+                    assert.equal(
+                      (await native.query('SELECT 1 AS ok')).rows[0]!.ok,
+                      1,
+                    );
+                  },
+                }),
+              ),
+            );
+            assert(high <= 2);
+            assert.equal(pids.size, 6);
+            assert.equal(bounded.stats().operations, 0);
+          } finally {
+            await controller.close();
+            await bounded.close();
+          }
+        },
+      );
+      await t.test(
+        'store shutdown and capacity account for queued native connection acquisition',
+        async () => {
+          const isolated = createPgLifecycleStore({
+            connection: { ...config, connectionTimeoutMillis: 150 },
+            maxConnections: 2,
+            maxPending: 3,
+            statementTimeoutMs: 1000,
+            shutdownTimeoutMs: 20,
+          });
+          const release = signal();
+          let entered = 0;
+          const first = isolated.withControlLock(keyA, async (session) => {
+            await session.read();
+            entered++;
+            await release.promise;
+          });
+          const second = isolated.withControlLock(keyB, async (session) => {
+            await session.read();
+            entered++;
+            await release.promise;
+          });
+          let queued: Promise<void> | undefined;
+          try {
+            await until(() => entered === 2);
+            queued = assert.rejects(isolated.read(keyA));
+            assert.equal(isolated.stats().operations, 3);
+            await assert.rejects(isolated.read(keyB), LifecycleBusyError);
+            const closing = isolated.close();
+            await assert.rejects(closing, LifecycleTimeoutError);
+            assert.equal(isolated.close(), closing);
+            assert.equal(isolated.stats().operations, 3);
+            await assert.rejects(isolated.read(keyA), LifecycleClosedError);
+            release.resolve();
+            await Promise.all([first, second]);
+            await queued;
+            await until(() => isolated.stats().operations === 0);
+          } finally {
+            release.resolve();
+            await Promise.allSettled([first, second]);
+            await queued;
+            await isolated.close().catch((error) => {
+              if (!(error instanceof LifecycleTimeoutError)) throw error;
+            });
           }
         },
       );

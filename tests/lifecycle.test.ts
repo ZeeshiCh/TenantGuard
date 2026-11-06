@@ -59,13 +59,11 @@ const provision = {
   schemaVersion: 'v1',
 };
 function fixture(
-  options: Parameters<typeof createTenantLifecycle>[0] extends never
-    ? never
-    : {
-        operationTimeoutMs?: number;
-        shutdownTimeoutMs?: number;
-        maxOperations?: number;
-      } = {},
+  options: {
+    operationTimeoutMs?: number;
+    shutdownTimeoutMs?: number;
+    maxOperations?: number;
+  } = {},
 ) {
   const store = createMemoryLifecycleStore();
   const changes: string[] = [];
@@ -613,4 +611,148 @@ test('memory catalog and lock bounds reject without changing existing records', 
     await manager.close();
     await store.close();
   }
+});
+
+test('settled management releases capacity before a sequential command begins', async () => {
+  const f = fixture({ maxOperations: 1 });
+  try {
+    await f.manager.provision(provision);
+    assert.equal(f.manager.stats().operations, 0);
+    await f.manager.migrate({
+      ...callbacks,
+      route: route('2'),
+      schemaVersion: 'v2',
+      operationId: 'sequential',
+      expectedVersion: 3,
+    });
+    assert.equal(f.manager.stats().operations, 0);
+  } finally {
+    await f.close();
+  }
+});
+test('recovery snapshots its callbacks and expected version before awaiting the store', async () => {
+  const f = fixture();
+  const entered = signal(),
+    release = signal();
+  let calls = 0;
+  try {
+    await assert.rejects(
+      f.manager.provision({
+        ...provision,
+        work: async () => {
+          throw new Error('failed');
+        },
+      }),
+    );
+    const delayed = {
+      ...f.store,
+      read: async (input: Parameters<typeof f.store.read>[0]) => {
+        entered.resolve();
+        await release.promise;
+        return f.store.read(input);
+      },
+    };
+    const recovering = createTenantLifecycle({
+      store: delayed,
+      maxOperations: 1,
+    });
+    const command = {
+      key,
+      expectedVersion: 3,
+      operationId: 'provision-1',
+      work: async () => {
+        calls++;
+      },
+      verify: async () => {},
+    };
+    const task = recovering.recover(command);
+    await entered.promise;
+    command.expectedVersion = 999;
+    command.operationId = 'mutated';
+    command.work = async () => assert.fail('mutated callback');
+    release.resolve();
+    await task;
+    assert.equal(calls, 1);
+    await recovering.close();
+  } finally {
+    release.resolve();
+    await f.close();
+  }
+});
+test('admission rejects a mismatched adapter and corrupt active operation metadata', async () => {
+  const f = fixture();
+  try {
+    await f.manager.provision(provision);
+    const wrong: DatabaseAdapter<{}> = {
+      name: 'wrong',
+      capabilities: { transactions: true, isolationModes: ['database-policy'] },
+      run: async () => assert.fail('wrong adapter'),
+    };
+    await assert.rejects(
+      createLifecycleAdapter({ store: f.store, adapter: wrong }).run(
+        key,
+        route(),
+        async () => {},
+      ),
+      LifecycleConflictError,
+    );
+    const active = (await f.store.read(key))!;
+    assert.throws(() =>
+      stateSnapshot({
+        ...active,
+        operation: { ...active.operation!, schemaVersion: 'wrong' },
+      }),
+    );
+    assert.throws(() => stateSnapshot({ ...active, failure: 'operation' }));
+  } finally {
+    await f.close();
+  }
+});
+test('memory transaction discards staged activation if the final checkpoint fails', async () => {
+  const f = fixture();
+  try {
+    await f.manager.provision(provision);
+    await assert.rejects(
+      f.store.withExclusiveLock(
+        key,
+        async (transaction) => {
+          const current = (await transaction.read())!;
+          assert(
+            await transaction.compareAndSet(3, { ...current, version: 4 }),
+          );
+        },
+        () => {
+          throw new Error('deadline before commit');
+        },
+      ),
+    );
+    assert.equal((await f.store.read(key))!.version, 3);
+  } finally {
+    await f.close();
+  }
+});
+test('memory shutdown rejects waiting exclusive barriers and drains actual admissions', async () => {
+  const store = createMemoryLifecycleStore({ maxLocks: 3 });
+  const entered = signal(),
+    release = signal();
+  const active = store.withAdmission(key, async () => {
+    entered.resolve();
+    await release.promise;
+  });
+  await entered.promise;
+  const exclusive = assert.rejects(
+    store.withExclusiveLock(key, async () => assert.fail('closed barrier')),
+    LifecycleClosedError,
+  );
+  const closing = store.close();
+  let done = false;
+  void closing.then(() => {
+    done = true;
+  });
+  await exclusive;
+  await delay(1);
+  assert.equal(done, false);
+  release.resolve();
+  await active;
+  await closing;
 });

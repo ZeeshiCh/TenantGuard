@@ -24,6 +24,10 @@ export function createMemoryLifecycleStore(
   const maxRecords = duration(options.maxRecords, 1024),
     maxLocks = duration(options.maxLocks, 128),
     timeout = duration(options.shutdownTimeoutMs, 30000);
+  if (maxLocks < 2)
+    throw new RangeError(
+      'Lifecycle memory store requires at least two lock slots',
+    );
   const states = new Map<string, Readonly<LifecycleState>>();
   const controls = new Set<string>();
   const traffic = new Map<
@@ -71,6 +75,7 @@ export function createMemoryLifecycleStore(
     work: (session: LifecycleSession) => Promise<T>,
   ): Promise<T> {
     if (closed) throw new LifecycleClosedError();
+    if (active >= maxLocks) throw new LifecycleBusyError();
     const key = keySnapshot(input),
       id = keyString(key);
     let lock = traffic.get(id);
@@ -119,6 +124,7 @@ export function createMemoryLifecycleStore(
       work: (session: LifecycleSession) => Promise<T>,
     ): Promise<T> {
       if (closed) throw new LifecycleClosedError();
+      if (active >= maxLocks) throw new LifecycleBusyError();
       const key = keySnapshot(input),
         id = keyString(key);
       if (controls.has(id) || controls.size >= maxLocks)
@@ -203,6 +209,7 @@ export function createMemoryLifecycleStore(
       closed = true;
       closing = new Promise<void>((resolve, reject) => {
         finish = resolve;
+        const deadline = performance.now() + timeout;
         const timer = setTimeout(
           () => reject(new LifecycleTimeoutError('shutdown')),
           timeout,
@@ -210,7 +217,9 @@ export function createMemoryLifecycleStore(
         const done = finish;
         finish = () => {
           clearTimeout(timer);
-          done();
+          if (performance.now() >= deadline)
+            reject(new LifecycleTimeoutError('shutdown'));
+          else done();
         };
       });
       void closing.catch(() => {});

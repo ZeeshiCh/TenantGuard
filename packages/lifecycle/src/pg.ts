@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import pg, {
   type PoolConfig,
   type PoolClient,
@@ -85,19 +86,26 @@ export class PgLifecycleCommitError extends Error {
     this.name = 'PgLifecycleCommitError';
   }
 }
+export interface PgLifecycleStore extends LifecycleStore<PgLifecycleExecution> {
+  stats(): Readonly<{ closed: boolean; operations: number }>;
+}
 /** Owned metadata pool. Management credentials require an explicit management RLS policy or BYPASSRLS. */
 export function createPgLifecycleStore(
   options: PgLifecycleLocation & {
     readonly connection: PoolConfig;
     readonly maxConnections?: number;
+    readonly maxPending?: number;
     readonly statementTimeoutMs?: number;
     readonly shutdownTimeoutMs?: number;
   },
-): LifecycleStore<PgLifecycleExecution> {
+): PgLifecycleStore {
   const table = location(options),
     max = duration(options.maxConnections, 8),
     statementTimeout = duration(options.statementTimeoutMs, 5000),
     shutdownTimeout = duration(options.shutdownTimeoutMs, 30000);
+  const maxPending = duration(options.maxPending, 128);
+  if (maxPending < 2 || maxPending > 100_000)
+    throw new RangeError('Invalid lifecycle pending-operation bound');
   if (max < 2 || max > 1024)
     throw new RangeError(
       'Lifecycle PostgreSQL pool requires 2–1024 connections',
@@ -121,6 +129,16 @@ export function createPgLifecycleStore(
   const checkClose = () => {
     if (ended && active === 0) finishClose?.();
   };
+  const controls = new AsyncLocalStorage<{
+    key: string;
+    live: () => boolean;
+    execute: <T>(
+      work: (
+        transaction: LifecycleTransaction<PgLifecycleExecution>,
+      ) => Promise<T>,
+      beforeCommit?: () => void,
+    ) => Promise<T>;
+  }>();
   function session(
     key: LifecycleKey,
     live: () => boolean,
@@ -184,6 +202,7 @@ export function createPgLifecycleStore(
     beforeCommit?: () => void,
   ): Promise<T> {
     if (closed) throw new LifecycleClosedError();
+    if (active >= maxPending) throw new LifecycleBusyError();
     const key = keySnapshot(input);
     active++;
     let client: PoolClient | undefined,
@@ -233,89 +252,123 @@ export function createPgLifecycleStore(
           [keyString(key)],
         );
         if (!result.rows[0]!.locked) throw new LifecycleBusyError();
-      } else if (kind === 'exclusive') {
-        await track('BEGIN');
-        transaction = true;
-        await track(
-          `SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,${TRAFFIC_SEED}))`,
-          [keyString(key)],
-        );
       }
       const recordSession = session(key, () => live && !broken, track);
-      const xid =
-        kind === 'exclusive'
-          ? String(
-              (
-                await track<{ xid: string }>(
-                  'SELECT pg_catalog.txid_current()::text AS xid',
+      let executing = false;
+      const api = Object.freeze({
+        ...recordSession,
+        async runPhase<R>(
+          callback: (executor: PgLifecycleExecution) => Promise<R>,
+        ): Promise<R> {
+          if (!executing || !live || broken) throw new LifecycleClosedError();
+          let phaseLive = true;
+          const executor: Object & PgLifecycleExecution = Object.freeze({
+            query<R extends QueryResultRow = QueryResultRow>(
+              text: string,
+              values: readonly unknown[] = [],
+            ): Promise<QueryResult<R>> {
+              if (!phaseLive || !live || broken)
+                return Promise.reject(new LifecycleClosedError());
+              if (
+                typeof text !== 'string' ||
+                !/^\s*(SELECT|WITH|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|COMMENT|GRANT|REVOKE|TRUNCATE)\b/i.test(
+                  text,
                 )
-              ).rows[0]!.xid,
-            )
-          : undefined;
-      const result = await work(
-        Object.freeze({
-          ...recordSession,
-          async runPhase<R>(
-            callback: (executor: PgLifecycleExecution) => Promise<R>,
-          ): Promise<R> {
-            let phaseLive = true;
-            const executor: Object & PgLifecycleExecution = Object.freeze({
-              query<R extends QueryResultRow = QueryResultRow>(
-                text: string,
-                values: readonly unknown[] = [],
-              ): Promise<QueryResult<R>> {
-                if (!phaseLive || !live || broken)
-                  return Promise.reject(new LifecycleClosedError());
-                if (
-                  typeof text !== 'string' ||
-                  !/^\s*(SELECT|WITH|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|COMMENT|GRANT|REVOKE|TRUNCATE)\b/i.test(
-                    text,
-                  )
-                ) {
-                  failed = true;
-                  return Promise.reject(
-                    new TypeError(
-                      'Lifecycle execution requires one non-transaction-control SQL statement',
-                    ),
-                  );
-                }
-                return track<R>(text, values);
-              },
-            });
-            try {
-              const value = await callback(executor);
-              phaseLive = false;
-              if (pending.size || failed || broken)
-                throw new Error(
-                  'Lifecycle phase left failed or unawaited native queries',
+              ) {
+                failed = true;
+                return Promise.reject(
+                  new TypeError(
+                    'Lifecycle execution requires one non-transaction-control SQL statement',
+                  ),
                 );
-              return value;
-            } finally {
-              phaseLive = false;
+              }
+              return track<R>(text, values);
+            },
+          });
+          try {
+            const value = await callback(executor);
+            phaseLive = false;
+            if (pending.size || failed || broken)
+              throw new Error(
+                'Lifecycle phase left failed or unawaited native queries',
+              );
+            return value;
+          } finally {
+            phaseLive = false;
+          }
+        },
+      });
+      const execute = async <R>(
+        callback: (
+          transaction: LifecycleTransaction<PgLifecycleExecution>,
+        ) => Promise<R>,
+        checkpoint?: () => void,
+      ): Promise<R> => {
+        if (!live || broken) throw new LifecycleClosedError();
+        if (executing || pending.size || failed) throw new LifecycleBusyError();
+        executing = true;
+        try {
+          await track('BEGIN');
+          transaction = true;
+          await track(
+            `SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,${TRAFFIC_SEED}))`,
+            [keyString(key)],
+          );
+          const xid = String(
+            (
+              await track<{ xid: string }>(
+                'SELECT pg_catalog.txid_current()::text AS xid',
+              )
+            ).rows[0]!.xid,
+          );
+          const value = await callback(api);
+          if (pending.size || failed || broken)
+            throw new Error('Lifecycle scope left failed or unawaited queries');
+          const current = String(
+            (
+              await track<{ xid: string }>(
+                'SELECT pg_catalog.txid_current()::text AS xid',
+              )
+            ).rows[0]!.xid,
+          );
+          if (current !== xid)
+            throw new Error('Lifecycle transaction boundary changed');
+          checkpoint?.();
+          try {
+            await track('COMMIT');
+            transaction = false;
+          } catch (error) {
+            throw new PgLifecycleCommitError(error);
+          }
+          return value;
+        } catch (error) {
+          await Promise.allSettled([...pending]);
+          if (transaction && !broken)
+            try {
+              await native.query('ROLLBACK');
+            } catch (cleanup) {
+              throw new AggregateError(
+                [error, cleanup],
+                'Lifecycle transaction and rollback failed',
+              );
             }
-          },
-        }),
-      );
+          transaction = false;
+          throw error;
+        } finally {
+          executing = false;
+        }
+      };
+      const action = () =>
+        kind === 'exclusive' ? execute(work, beforeCommit) : work(api);
+      const result =
+        kind === 'read'
+          ? await action()
+          : await controls.run(
+              { key: keyString(key), live: () => live && !broken, execute },
+              action,
+            );
       if (pending.size || failed || broken)
         throw new Error('Lifecycle scope left failed or unawaited queries');
-      if (kind === 'exclusive') {
-        const current = String(
-          (
-            await track<{ xid: string }>(
-              'SELECT pg_catalog.txid_current()::text AS xid',
-            )
-          ).rows[0]!.xid,
-        );
-        if (current !== xid)
-          throw new Error('Lifecycle transaction boundary changed');
-        beforeCommit?.();
-        try {
-          await track('COMMIT');
-          transaction = false;
-        } catch (error) {
-          throw new PgLifecycleCommitError(error);
-        }
-      }
       return result;
     } catch (error) {
       live = false;
@@ -347,19 +400,39 @@ export function createPgLifecycleStore(
     withControlLock: <T>(
       key: LifecycleKey,
       work: (session: LifecycleSession) => Promise<T>,
-    ) => scope(key, 'control', work),
+    ) => {
+      const context = controls.getStore();
+      if (context)
+        return Promise.reject(
+          context.live()
+            ? new LifecycleBusyError()
+            : new LifecycleClosedError(),
+        );
+      return scope(key, 'control', work);
+    },
     withExclusiveLock: <T>(
-      key: LifecycleKey,
+      input: LifecycleKey,
       work: (
         transaction: LifecycleTransaction<PgLifecycleExecution>,
       ) => Promise<T>,
       beforeCommit?: () => void,
-    ) => scope(key, 'exclusive', work, beforeCommit),
+    ) => {
+      const key = keySnapshot(input),
+        context = controls.getStore();
+      if (context) {
+        if (!context.live()) return Promise.reject(new LifecycleClosedError());
+        if (context.key !== keyString(key))
+          return Promise.reject(new LifecycleConflictError());
+        return context.execute(work, beforeCommit);
+      }
+      return scope(key, 'exclusive', work, beforeCommit);
+    },
     close() {
       if (closing) return closing;
       closed = true;
       const actual = pool.end();
       closing = new Promise<void>((resolve, reject) => {
+        const deadline = performance.now() + shutdownTimeout;
         const timer = setTimeout(
           () => reject(new LifecycleTimeoutError('shutdown')),
           shutdownTimeout,
@@ -369,7 +442,9 @@ export function createPgLifecycleStore(
             ended = true;
             finishClose = () => {
               clearTimeout(timer);
-              resolve();
+              if (performance.now() >= deadline)
+                reject(new LifecycleTimeoutError('shutdown'));
+              else resolve();
             };
             checkClose();
           },

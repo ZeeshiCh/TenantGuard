@@ -162,8 +162,20 @@ export function stateSnapshot(
   }
   if (['provisioning', 'migrating'].includes(route.status) && !operation)
     throw new TypeError('Missing lifecycle operation');
+  if (
+    route.status === 'active' &&
+    operation &&
+    (routeIdentity(route) !== routeIdentity(operation.target) ||
+      schemaVersion !== operation.schemaVersion)
+  )
+    throw new TypeError(
+      'Active lifecycle operation does not match applied schema/route',
+    );
   const failure = value.failure;
-  if (failure !== undefined && failure !== 'operation')
+  if (
+    (failure !== undefined && failure !== 'operation') ||
+    (failure && route.status === 'active')
+  )
     throw new TypeError('Invalid lifecycle failure');
   return Object.freeze({
     version: value.version,
