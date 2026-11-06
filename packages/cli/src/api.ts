@@ -1,3 +1,4 @@
+import { resolveProbe } from './probe-config.js';
 import { author, policyText } from './authoring.js';
 import { parseArgs } from 'node:util';
 import { dirname, resolve } from 'node:path';
@@ -22,6 +23,7 @@ import {
 } from './processes.js';
 export const HELP = `tenantguard init --engine <engine> [--output tenantguard.json] [--table orders] [--schema name] [--tenant-column tenant_id] [--url-env ENV] [--json]
 tenantguard generate-policy --config <json> [--source name] [--output migration.sql] [--json]
+tenantguard test-isolation --config <json> --source name --target schema.table --tenant-a-env ENV --tenant-b-env ENV --row-a-env ENV --row-b-env ENV [--json] [--fail-on error|warning]
 tenantguard doctor --config <json> [--connect] [--json] [--fail-on error|warning]
 tenantguard audit --config <json> [--json] [--fail-on error|warning]
 Doctor validates offline by default. Audit inspects declared database catalogs read-only.
@@ -83,6 +85,9 @@ export async function diagnose(
     connected = false,
     failOn: 'error' | 'warning' = 'error';
   try {
+    const [major, minor] = process.versions.node.split('.').map(Number);
+    if (major! < 22 || (major === 22 && minor! < 16))
+      throw new ConfigError('RUNTIME.NODE_VERSION', 'runtime');
     if (args[0] === 'init' || args[0] === 'generate-policy') {
       command = args[0];
       if (args.includes('--help') || args.includes('-h')) return { help: true };
@@ -94,6 +99,12 @@ export async function diagnose(
       tokens: true,
       options: {
         config: { type: 'string' },
+        source: { type: 'string' },
+        target: { type: 'string' },
+        'tenant-a-env': { type: 'string' },
+        'tenant-b-env': { type: 'string' },
+        'row-a-env': { type: 'string' },
+        'row-b-env': { type: 'string' },
         json: { type: 'boolean' },
         connect: { type: 'boolean' },
         'fail-on': { type: 'string' },
@@ -103,16 +114,30 @@ export async function diagnose(
     if (parsed.values.help) return { help: true };
     if (
       parsed.positionals.length !== 1 ||
-      !['doctor', 'audit'].includes(parsed.positionals[0]!)
+      !['doctor', 'audit', 'test-isolation'].includes(parsed.positionals[0]!)
     )
       throw new ConfigError('CLI.ARGUMENTS', 'arguments');
-    command = parsed.positionals[0] as 'doctor' | 'audit';
+    command = parsed.positionals[0] as 'doctor' | 'audit' | 'test-isolation';
     if (
       !parsed.values.config ||
       parsed.tokens.filter(
         (token) => token.kind === 'option' && token.name === 'config',
       ).length !== 1 ||
-      (command === 'audit' && parsed.values.connect)
+      (command !== 'doctor' && parsed.values.connect) ||
+      new Set(
+        parsed.tokens.filter((t) => t.kind === 'option').map((t) => t.name),
+      ).size !== parsed.tokens.filter((t) => t.kind === 'option').length ||
+      (command !== 'test-isolation' &&
+        [
+          'source',
+          'target',
+          'tenant-a-env',
+          'tenant-b-env',
+          'row-a-env',
+          'row-b-env',
+        ].some((k) =>
+          parsed.tokens.some((t) => t.kind === 'option' && t.name === k),
+        ))
     )
       throw new ConfigError('CLI.ARGUMENTS', 'arguments');
     if (
@@ -127,6 +152,32 @@ export async function diagnose(
       { ...environment },
       dirname(resolve(parsed.values.config)),
     );
+    if (command === 'test-isolation') {
+      const selected = resolveProbe(sources, parsed.values, { ...environment });
+      connected = true;
+      const result = await inspectInWorker(
+        selected.source,
+        selected.source.timeoutMs,
+        selected.probe,
+      );
+      return makeReport(
+        command,
+        true,
+        [...configFindings([selected.source]), ...result.findings],
+        {
+          incomplete: !result.complete,
+          failOn,
+          scope: [
+            {
+              source: selected.source.name,
+              engine: selected.source.engine,
+              mode: selected.source.mode,
+              targets: [parsed.values.target!],
+            },
+          ],
+        },
+      );
+    }
     const findings: Finding[] = configFindings(sources);
     const scope = sources.map((source) => ({
       source: source.name,
@@ -136,9 +187,6 @@ export async function diagnose(
         (target) => (target.schema ? target.schema + '.' : '') + target.table,
       ),
     }));
-    const [major, minor] = process.versions.node.split('.').map(Number);
-    if (major! < 22 || (major === 22 && minor! < 16))
-      throw new ConfigError('RUNTIME.NODE_VERSION', 'runtime');
     connected = command === 'audit' || parsed.values.connect === true;
     if (!connected)
       return makeReport(command, false, findings, { failOn, scope });
@@ -180,7 +228,11 @@ export async function diagnose(
           message: `Configuration rejected at ${value.field}.`,
         },
       ],
-      { invalid: true, failOn },
+      {
+        invalid: value.code !== 'OUTPUT.WRITE_FAILED',
+        incomplete: value.code === 'OUTPUT.WRITE_FAILED',
+        failOn,
+      },
     );
   }
 }
@@ -196,6 +248,10 @@ export async function main(
     io.write(HELP);
     return 0;
   }
-  io.write(result.artifact && !args.includes('--json') ? policyText(result.artifact) : renderReport(result, args.includes('--json')));
+  io.write(
+    result.artifact && !args.includes('--json')
+      ? policyText(result.artifact)
+      : renderReport(result, args.includes('--json')),
+  );
   return result.exitCode;
 }

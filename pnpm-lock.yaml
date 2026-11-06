@@ -152,9 +152,21 @@ importers:
       '@tenantguard/core':
         specifier: workspace:*
         version: link:../core
+      '@tenantguard/mariadb':
+        specifier: workspace:*
+        version: link:../mariadb
+      '@tenantguard/mongodb':
+        specifier: workspace:*
+        version: link:../mongodb
+      '@tenantguard/mysql':
+        specifier: workspace:*
+        version: link:../mysql
       '@tenantguard/postgres':
         specifier: workspace:*
         version: link:../postgres
+      '@tenantguard/sqlite':
+        specifier: workspace:*
+        version: link:../sqlite
       '@tenantguard/sqlserver':
         specifier: workspace:*
         version: link:../sqlserver

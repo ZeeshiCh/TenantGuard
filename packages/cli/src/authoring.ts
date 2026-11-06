@@ -22,10 +22,14 @@ export async function writeNewFile(
     throw new ConfigError('OUTPUT.UNAVAILABLE', 'output');
   }
   try {
-    await handle.writeFile(content, 'utf8');
-    await handle.sync();
-  } finally {
-    await handle.close();
+    try {
+      await handle.writeFile(content, 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    throw new ConfigError('OUTPUT.WRITE_FAILED', 'output');
   }
 }
 export async function author(

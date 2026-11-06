@@ -5,6 +5,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { readFileSync } from 'node:fs';
+import type { IsolationProbe } from './probe-config.js';
 import type { Finding } from './report.js';
 import type { ResolvedSource } from './config.js';
 const children = new Set<ChildProcess>();
@@ -51,6 +52,7 @@ function childEnvironment(url?: string): NodeJS.ProcessEnv {
 export async function inspectInWorker(
   source: ResolvedSource,
   budget: number,
+  probe?: IsolationProbe,
 ): Promise<Inspection> {
   if (stopping) return incomplete(source.name, 'INSPECTION.INTERRUPTED');
   const sourceMode = import.meta.url.endsWith('.ts');
@@ -111,7 +113,7 @@ export async function inspectInWorker(
         !expired && code === 0 && reply ? reply : incomplete(source.name),
       );
     });
-    child.send(source, (error) => {
+    child.send({ source, probe }, (error) => {
       if (error) child.kill('SIGKILL');
     });
   });

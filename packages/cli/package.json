@@ -24,7 +24,11 @@
     "tenant-audit": "0.2.0",
     "db-deploy-doctor": "0.2.0",
     "mysql2": "^3.24.6",
-    "mongodb": "^6.20.0"
+    "mongodb": "^6.20.0",
+    "@tenantguard/mysql": "workspace:*",
+    "@tenantguard/mariadb": "workspace:*",
+    "@tenantguard/mongodb": "workspace:*",
+    "@tenantguard/sqlite": "workspace:*"
   },
   "peerDependencies": {},
   "bin": {
