@@ -2,7 +2,7 @@
 
 Multi-tenancy foundations for JavaScript and TypeScript backends.
 
-Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono and Fetch integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. MySQL and MariaDB have restricted CRUD adapters with application-filter isolation. MongoDB has restricted CRUD and aggregation; SQLite has worker-owned scoped CRUD over database files. Both use application-filter isolation.
+Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono and Fetch integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. MySQL and MariaDB have restricted CRUD adapters with application-filter isolation. MongoDB has restricted CRUD and aggregation; SQLite has worker-owned scoped CRUD over database files. Both use application-filter isolation. Prisma has a restricted scoped adapter verified on PostgreSQL, MySQL and MariaDB.
 
 See the [implementation plan](docs/implementation-plan.md), [architecture and current support](docs/architecture.md), and [security model](docs/security.md).
 
@@ -16,7 +16,7 @@ pnpm check
 pnpm test:integration
 ```
 
-`pnpm check` runs formatting, strict type checks, unit tests, browser-target portability builds, package builds and clean packed-package JavaScript/TypeScript consumer tests, including direct pg, SQL Server, MySQL, MariaDB, MongoDB and SQLite entry points. Database tests sequentially launch disposable PostgreSQL 17, SQL Server 2022 Developer, MySQL 8.4, MariaDB 11.8 and authenticated MongoDB 8.0 replica-set containers through Testcontainers; SQLite tests use real temporary database files. SQL Server uses an x86-64 image and needs at least 3 GiB of container memory. CI also configures Node 22 and 24 checks. `pnpm format` formats sources and documentation.
+`pnpm check` runs formatting, strict type checks, unit tests, browser-target portability builds, package builds and clean packed-package JavaScript/TypeScript consumer tests, including direct pg, SQL Server, MySQL, MariaDB, MongoDB, SQLite and Prisma entry points. Database tests sequentially launch disposable PostgreSQL 17, SQL Server 2022 Developer, MySQL 8.4, MariaDB 11.8 and authenticated MongoDB 8.0 replica-set containers through Testcontainers; SQLite tests use real temporary database files. SQL Server uses an x86-64 image and needs at least 3 GiB of container memory. CI also configures Node 22 and 24 checks. `pnpm generate:prisma` generates fixture clients and schema metadata automatically before type checks/integration tests. `pnpm format` formats sources and documentation.
 
 ## Portable authorization
 
@@ -86,6 +86,12 @@ The same seven conformance cases run against a real authenticated MongoDB replic
 
 The same seven conformance cases run against real SQLite files, supplemented by lock, commit, automatic rollback, deadline and shutdown tests. This is application-filter isolation; native file access bypasses it and strict routing rejects it. It uses the same explicit-context router for Node, NestJS, Hono and other Node JS/TS backends. See the [SQLite guide](packages/sqlite/README.md) for provisioning, transaction limits and deployment requirements.
 
+## Prisma
+
+`@tenantguard/prisma` provides `createPrismaResource`, `createPrismaAdapter` and a companion schema metadata generator. Its allowlisted scalar model facade scopes CRUD inside owned interactive transactions, rejects nested/relation/raw entry points and disconnects each fresh client after transaction settlement. It uses application-filter isolation, which strict routing rejects.
+
+The same conformance cases run separately on real PostgreSQL, MySQL and MariaDB using Prisma 7.10.1. Metadata checks refuse unsafe tenant column types/collations; tests also cover rollback, native transaction expiry, blocked updates and connection closure. Node, NestJS, Hono and other Node JS/TS backends use the same explicit-context router. See the [Prisma guide](packages/prisma/README.md) for generation, pool ownership, schema requirements and error outcomes.
+
 ## Node and TypeORM
 
 Node-specific context APIs now live in `@tenantguard/node`, not core. Supply `nodeContext` to the guard when using the convenience TypeORM helper:
@@ -151,6 +157,6 @@ The CLI inventories user tables and exits 1 for missing RLS/FORCE/policies or op
 
 ## Layout and release status
 
-`packages/`: core, node, fetch, hono, postgres, sqlserver, mysql, mariadb, mongodb, sqlite, scoped-sql, typeorm, nestjs, testing and cli. `examples/`: NestJS + TypeORM orders endpoint. `apps/docs` and `apps/playground` remain placeholders.
+`packages/`: core, node, fetch, hono, postgres, sqlserver, mysql, mariadb, mongodb, sqlite, scoped-sql, prisma, typeorm, nestjs, testing and cli. `examples/`: NestJS + TypeORM orders endpoint. `apps/docs` and `apps/playground` remain placeholders.
 
 Packages are ESM with TypeScript declarations. No npm packages or hosted services have been published, and package-name availability has not been checked. The [complete roadmap](docs/implementation-plan.md) covers remaining databases, ORMs, frameworks, runtime support, tooling, security review and deployment.
