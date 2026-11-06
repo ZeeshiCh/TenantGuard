@@ -18,10 +18,19 @@
   },
   "dependencies": {
     "@tenantguard/postgres": "workspace:*",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "@tenantguard/core": "workspace:*",
+    "@tenantguard/sqlserver": "workspace:*",
+    "tenant-audit": "0.2.0",
+    "db-deploy-doctor": "0.2.0",
+    "mysql2": "^3.24.6",
+    "mongodb": "^6.20.0"
   },
   "peerDependencies": {},
   "bin": {
     "tenantguard": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=22.16.0"
   }
 }

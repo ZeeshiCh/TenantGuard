@@ -149,12 +149,30 @@ importers:
 
   packages/cli:
     dependencies:
+      '@tenantguard/core':
+        specifier: workspace:*
+        version: link:../core
       '@tenantguard/postgres':
         specifier: workspace:*
         version: link:../postgres
+      '@tenantguard/sqlserver':
+        specifier: workspace:*
+        version: link:../sqlserver
+      db-deploy-doctor:
+        specifier: 0.2.0
+        version: 0.2.0(@types/node@22.20.5)
+      mongodb:
+        specifier: ^6.20.0
+        version: 6.22.0
+      mysql2:
+        specifier: ^3.24.6
+        version: 3.24.6(@types/node@22.20.5)
       pg:
         specifier: ^8.16.0
         version: 8.23.1
+      tenant-audit:
+        specifier: 0.2.0
+        version: 0.2.0(@types/node@22.20.5)
 
   packages/core: {}
 
@@ -1385,6 +1403,10 @@ packages:
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
 
+  commander@14.0.3:
+    resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
+    engines: {node: '>=20'}
+
   compress-commons@6.0.2:
     resolution: {integrity: sha512-6FqVXeETqWPoGcfzrXb37E50NP0LXT8kAMu5ooZayhWWdgEY4lBEEcbQNXtkuKQsGduxiIcI4gOTsxTmuq/bSg==}
     engines: {node: '>= 14'}
@@ -1508,6 +1530,11 @@ packages:
 
   dayjs@1.11.23:
     resolution: {integrity: sha512-QDTCU0M0MxR3hQfnlDJfwekQiaanm1ubOD231u73WBckQ/fsamwRLiE2GBz6D3a/xF1NgfiDLJjXBa1hYOYTtQ==}
+
+  db-deploy-doctor@0.2.0:
+    resolution: {integrity: sha512-qOGhsvsm+OTWMR4GO5ezPzc/OOfxyWqAgqbkgpj1nkwCmpMHL5pNkwUlHlrtZihmJf9s9LAAQgFuFhdMzVljkg==}
+    engines: {node: '>=22.14.0'}
+    hasBin: true
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -2744,6 +2771,11 @@ packages:
   teex@1.0.1:
     resolution: {integrity: sha512-eYE6iEI62Ni1H8oIa7KlDU6uQBtqr4Eajni3wX7rpfXD8ysFx8z0+dri+KWEPWpBsxXfxu58x/0jvTVT1ekOSg==}
 
+  tenant-audit@0.2.0:
+    resolution: {integrity: sha512-scl2y/WL1Z+XRTt1Qqp5yaFuN06gynUrGwK0yS5WEmexzJZFYGWR8jrCrMyZTYAqrg6NOWdZgiCEEw5IwM7tCA==}
+    engines: {node: '>=22'}
+    hasBin: true
+
   testcontainers@11.14.0:
     resolution: {integrity: sha512-r9pniwv/iwzyHaI7gwAvAm4Y+IvjJg3vBWdjrUCaDMc2AXIr4jKbq7jJO18Mw2ybs73pZy1Aj7p/4RVBGMRWjg==}
 
@@ -2974,6 +3006,9 @@ packages:
   zip-stream@6.0.1:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
+
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
@@ -4044,6 +4079,8 @@ snapshots:
 
   color-name@1.1.4: {}
 
+  commander@14.0.3: {}
+
   compress-commons@6.0.2:
     dependencies:
       crc-32: 1.2.2
@@ -4152,6 +4189,16 @@ snapshots:
       d3-array: 3.2.4
 
   dayjs@1.11.23: {}
+
+  db-deploy-doctor@0.2.0(@types/node@22.20.5):
+    dependencies:
+      commander: 14.0.3
+      mysql2: 3.24.6(@types/node@22.20.5)
+      pg: 8.23.1
+      zod: 4.6.7
+    transitivePeerDependencies:
+      - '@types/node'
+      - pg-native
 
   debug@4.4.3:
     dependencies:
@@ -5380,6 +5427,14 @@ snapshots:
       - bare-abort-controller
       - react-native-b4a
 
+  tenant-audit@0.2.0(@types/node@22.20.5):
+    dependencies:
+      mysql2: 3.24.6(@types/node@22.20.5)
+      pg: 8.23.1
+    transitivePeerDependencies:
+      - '@types/node'
+      - pg-native
+
   testcontainers@11.14.0:
     dependencies:
       '@balena/dockerignore': 1.0.2
@@ -5594,3 +5649,5 @@ snapshots:
       archiver-utils: 5.0.2
       compress-commons: 6.0.2
       readable-stream: 4.8.0
+
+  zod@4.6.7: {}

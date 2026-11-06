@@ -1,27 +1,46 @@
 #!/usr/bin/env node
-import pg from 'pg';
-import { AUDIT_SQL } from '@tenantguard/postgres';
-async function main() {
-  if (process.argv[2] !== 'audit')
-    throw new Error('Usage: tenantguard audit (requires DATABASE_URL)');
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
-  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    const { rows } = await client.query(AUDIT_SQL);
-    console.table(rows);
-    console.log(
-      'Inventory only: review policy expressions, role grants, ownership, views and SECURITY DEFINER functions separately.',
-    );
-    if (
-      rows.some((row) => !row.rls_enabled || !row.rls_forced || !row.has_policy)
-    )
-      process.exitCode = 1;
-  } finally {
-    await client.end();
-  }
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { main } from './api.js';
+import { stopDiagnosticChildren } from './processes.js';
+export * from './api.js';
+export { parseDiagnosticConfig } from './config.js';
+export type { DiagnosticConfig, DiagnosticSource, Target } from './config.js';
+export type { DiagnosticReport, Finding, Severity } from './report.js';
+let direct = false;
+try {
+  direct =
+    !!process.argv[1] &&
+    import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+} catch {
+  direct = false;
 }
-main().catch((error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
+if (direct) {
+  let interrupted = false;
+  const stop = (code: number) => {
+    interrupted = true;
+    process.exitCode = code;
+    stopDiagnosticChildren();
+  };
+  process.on('SIGINT', () => stop(130));
+  process.on('SIGTERM', () => stop(143));
+  process.stdout.on('error', () => {
+    process.exitCode = 3;
+    stopDiagnosticChildren();
+  });
+  void main(process.argv.slice(2), {
+    write: (text) => {
+      if (!interrupted) process.stdout.write(text);
+    },
+  }).then(
+    (code) => {
+      if (!interrupted) process.exitCode = code;
+    },
+    () => {
+      if (!interrupted) {
+        process.stderr.write('TenantGuard diagnostic execution failed.\n');
+        process.exitCode = 3;
+      }
+    },
+  );
+}
