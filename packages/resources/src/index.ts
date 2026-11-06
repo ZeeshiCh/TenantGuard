@@ -564,47 +564,42 @@ export function createTenantResourcePool<Resource extends object>(
       if (!slot || identity(slot.route) !== identity(route))
         throw new ResourcePoolRouteError();
       if (waiters.size >= maxWaiters) throw new ResourcePoolCapacityError();
-      return new Promise<T>((accept, reject) => {
-        const waiter: Waiter<Resource> = {
-          slot,
-          route: slot.route,
-          deadline: time + acquireTimeout,
-          reject,
-          grant: (record) => {
-            void Promise.resolve()
-              .then(() => {
-                if (closed) throw new ResourcePoolClosedError();
-                return work(record.resource!);
-              })
-              .then(
-                (result) => {
-                  accept(result);
-                },
-                (error) => {
-                  retire(record);
-                  reject(error);
-                },
-              )
-              .finally(() => {
-                record.users--;
-                try {
-                  record.idleAt = now();
-                } catch (error) {
-                  fatal(error);
-                }
-                dispose(record);
-                pump();
-                checkClose();
-              });
-          },
-        };
-        waiters.add(waiter);
-        waiter.timer = setTimeout(() => {
-          rejectWaiter(waiter, new ResourcePoolTimeoutError('acquire'));
+      // Await from the caller's async context. Pump/factory/other-lease callbacks
+      // only resolve acquisition; they must never invoke another request's work.
+      const record = await new Promise<RecordState<Resource>>(
+        (accept, reject) => {
+          const waiter: Waiter<Resource> = {
+            slot,
+            route: slot.route,
+            deadline: time + acquireTimeout,
+            reject,
+            grant: accept,
+          };
+          waiters.add(waiter);
+          waiter.timer = setTimeout(() => {
+            rejectWaiter(waiter, new ResourcePoolTimeoutError('acquire'));
+            pump();
+          }, acquireTimeout);
           pump();
-        }, acquireTimeout);
+        },
+      );
+      try {
+        if (closed) throw new ResourcePoolClosedError();
+        return await work(record.resource!);
+      } catch (error) {
+        retire(record);
+        throw error;
+      } finally {
+        record.users--;
+        try {
+          record.idleAt = now();
+        } catch (error) {
+          fatal(error);
+        }
+        dispose(record);
         pump();
-      });
+        checkClose();
+      }
     },
     sweep: pump,
     close: shutdown,

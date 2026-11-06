@@ -1,3 +1,9 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import {
+  getTenant,
+  requireTenant,
+  runWithContext,
+} from '../packages/node/src/index.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -837,5 +843,46 @@ test('late retired factory settlement cannot reject a fresh factory for the same
     assert.deepEqual(await replacement, { value: 'fresh' });
     await pool.close();
     assert.equal(destroyed, outcome === 'success' ? 2 : 1);
+  }
+});
+
+test('queued leases resume in each caller context rather than the factory or releasing request', async () => {
+  const trace = new AsyncLocalStorage<string>();
+  const pool = createTenantResourcePool({
+    maxLeasesPerResource: 1,
+    create: async () => {
+      await delay(2);
+      return {};
+    },
+    destroy: async () => {},
+  });
+  pool.setRoute(route());
+  pool.setRoute(route('B'));
+  try {
+    await Promise.all(
+      Array.from({ length: 24 }, (_, i) => {
+        const tenantId = i % 2 ? 'B' : 'Org_A';
+        const context = {
+          tenantId,
+          principalId: 'principal-' + i,
+          correlationId: 'request-' + i,
+        };
+        return trace.run('trace-' + i, () =>
+          runWithContext(context, () =>
+            pool.run(route(tenantId), async () => {
+              assert.deepEqual(requireTenant(), context);
+              assert.equal(trace.getStore(), 'trace-' + i);
+              await delay(1);
+              assert.deepEqual(requireTenant(), context);
+              assert.equal(trace.getStore(), 'trace-' + i);
+            }),
+          ),
+        );
+      }),
+    );
+    assert.equal(getTenant(), undefined);
+    assert.equal(trace.getStore(), undefined);
+  } finally {
+    await pool.close();
   }
 });
