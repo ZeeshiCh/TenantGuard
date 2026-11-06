@@ -21,7 +21,7 @@ export class ResourcePoolCapacityError extends Error {
   }
 }
 export class ResourcePoolTimeoutError extends Error {
-  constructor(readonly phase: 'acquire' | 'create') {
+  constructor(readonly phase: 'acquire' | 'create' | 'destroy' | 'shutdown') {
     super(`Tenant resource ${phase} deadline exceeded`);
     this.name = 'ResourcePoolTimeoutError';
   }
@@ -55,6 +55,8 @@ export interface ResourcePoolOptions<Resource extends object> {
   readonly acquireTimeoutMs?: number;
   readonly createTimeoutMs?: number;
   readonly idleTimeoutMs?: number;
+  readonly destroyTimeoutMs?: number;
+  readonly shutdownTimeoutMs?: number;
   readonly clock?: () => number;
 }
 export interface TenantResourcePool<Resource extends object> {
@@ -194,6 +196,18 @@ export function createTenantResourcePool<Resource extends object>(
     2_147_483_647,
     'idleTimeoutMs',
   );
+  const destroyTimeout = bound(
+    options.destroyTimeoutMs ?? 10000,
+    1,
+    2_147_483_647,
+    'destroyTimeoutMs',
+  );
+  const shutdownTimeout = bound(
+    options.shutdownTimeoutMs ?? 30000,
+    1,
+    2_147_483_647,
+    'shutdownTimeoutMs',
+  );
   const create = options.create,
     destroy = options.destroy,
     clock = options.clock ?? (() => performance.now());
@@ -214,6 +228,8 @@ export function createTenantResourcePool<Resource extends object>(
     pumping = false,
     again = false;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
+  let shutdownDeadline = Infinity;
   let closePromise: Promise<void> | undefined,
     finishClose: (() => void) | undefined,
     failClose: ((error: unknown) => void) | undefined;
@@ -222,7 +238,10 @@ export function createTenantResourcePool<Resource extends object>(
       closed &&
       Array.from(records).every((record) => record.state === 'failed')
     ) {
+      clearTimeout(shutdownTimer);
       if (failures.length) failClose?.(new ResourcePoolCleanupError(failures));
+      else if (performance.now() >= shutdownDeadline)
+        failClose?.(new ResourcePoolTimeoutError('shutdown'));
       else finishClose?.();
     }
   };
@@ -239,15 +258,21 @@ export function createTenantResourcePool<Resource extends object>(
   function dispose(record: RecordState<Resource>) {
     if (!record.retired || record.users || record.state !== 'ready') return;
     record.state = 'disposing';
+    const timer = setTimeout(() => {
+      if (record.state === 'disposing')
+        fatal(new ResourcePoolTimeoutError('destroy'));
+    }, destroyTimeout);
     void Promise.resolve()
       .then(() => destroy(record.resource!))
       .then(
         () => {
+          clearTimeout(timer);
           records.delete(record);
           pump();
           checkClose();
         },
         (error) => {
+          clearTimeout(timer);
           record.state = 'failed';
           failures.push(error);
           shutdown();
@@ -270,6 +295,11 @@ export function createTenantResourcePool<Resource extends object>(
       finishClose = resolve;
       failClose = reject;
     });
+    shutdownDeadline = performance.now() + shutdownTimeout;
+    shutdownTimer = setTimeout(
+      () => failClose?.(new ResourcePoolTimeoutError('shutdown')),
+      shutdownTimeout,
+    );
     // Automatic terminal cleanup failures are reported by close(), without orphan rejections.
     void closePromise.catch(() => {});
     for (const waiter of waiters)
@@ -329,10 +359,11 @@ export function createTenantResourcePool<Resource extends object>(
           }
           owned.add(resource);
           record.resource = resource;
-          record.state = 'ready';
           try {
+            // Keep creation unpublished while a custom clock can reenter the manager.
             const time = now();
             record.idleAt = time;
+            record.state = 'ready';
             if (time >= record.deadline) {
               rejectGeneration(record, new ResourcePoolTimeoutError('create'));
               retire(record);
@@ -341,6 +372,7 @@ export function createTenantResourcePool<Resource extends object>(
               retire(record);
             pump();
           } catch (error) {
+            record.state = 'ready';
             retire(record);
             fatal(error);
           }
@@ -385,6 +417,16 @@ export function createTenantResourcePool<Resource extends object>(
         }
         const time = now();
         if (closed) break;
+        for (const record of records) {
+          if (
+            record.state === 'creating' &&
+            !record.retired &&
+            time >= record.deadline
+          ) {
+            rejectGeneration(record, new ResourcePoolTimeoutError('create'));
+            retire(record);
+          }
+        }
         for (const record of records)
           if (
             record.state === 'ready' &&

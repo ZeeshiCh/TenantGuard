@@ -615,3 +615,155 @@ test('admission bounds, invalid configuration and route checks fail before nativ
   await pending;
   await closing;
 });
+
+test('shutdown deadline reports without force-closing active work and continues real draining', async () => {
+  const entered = signal(),
+    release = signal();
+  let destroyed = 0;
+  const pool = createTenantResourcePool({
+    shutdownTimeoutMs: 10,
+    create: async () => ({}),
+    destroy: async () => {
+      destroyed++;
+    },
+  });
+  pool.setRoute(route());
+  const active = pool.run(route(), async () => {
+    entered.resolve();
+    await release.promise;
+    assert.equal(destroyed, 0);
+    return 'finished';
+  });
+  await entered.promise;
+  const close = pool.close();
+  await assert.rejects(
+    close,
+    (error) =>
+      error instanceof ResourcePoolTimeoutError && error.phase === 'shutdown',
+  );
+  assert.equal(pool.close(), close);
+  assert.equal(pool.stats().activeLeases, 1);
+  assert.equal(pool.stats().resources, 1);
+  assert.equal(destroyed, 0);
+  release.resolve();
+  assert.equal(await active, 'finished');
+  await until(() => pool.stats().resources === 0);
+  assert.equal(destroyed, 1);
+  await assert.rejects(close, ResourcePoolTimeoutError);
+});
+test('stalled destruction closes admission but keeps actual disposal counted until settlement', async () => {
+  const gate = signal();
+  const pool = createTenantResourcePool({
+    destroyTimeoutMs: 5,
+    shutdownTimeoutMs: 10,
+    create: async () => ({}),
+    destroy: () => gate.promise,
+  });
+  pool.setRoute(route());
+  await pool.run(route(), async () => {});
+  pool.remove({ tenantId: 'Org_A' });
+  await until(() => pool.stats().closed);
+  assert.equal(pool.stats().disposing, 1);
+  assert.equal(pool.stats().resources, 1);
+  await assert.rejects(pool.close(), ResourcePoolTimeoutError);
+  gate.resolve();
+  await until(() => pool.stats().resources === 0);
+});
+test('late factory completion after shutdown timeout is still owned and destroyed exactly once', async () => {
+  const gate = deferred<object>();
+  let destroyed = 0;
+  const pool = createTenantResourcePool({
+    shutdownTimeoutMs: 5,
+    create: () => gate.promise,
+    destroy: async () => {
+      destroyed++;
+    },
+  });
+  pool.setRoute(route());
+  const request = assert.rejects(
+    pool.run(route(), async () => assert.fail('late work')),
+    ResourcePoolClosedError,
+  );
+  await tick();
+  const closing = pool.close();
+  await request;
+  await assert.rejects(closing, ResourcePoolTimeoutError);
+  assert.equal(pool.stats().creating, 1);
+  gate.resolve({});
+  await until(() => pool.stats().resources === 0);
+  assert.equal(destroyed, 1);
+});
+
+test('reentrant clock cannot publish an expired factory result to another acquisition', async () => {
+  let time = 0,
+    callback = () => {},
+    worked = 0,
+    destroyed = 0;
+  const gate = deferred<object>();
+  let reentrant: Promise<void> | undefined;
+  const pool = createTenantResourcePool({
+    clock: () => {
+      callback();
+      return time;
+    },
+    createTimeoutMs: 1000,
+    acquireTimeoutMs: 2000,
+    create: () => gate.promise,
+    destroy: async () => {
+      destroyed++;
+    },
+  });
+  pool.setRoute(route());
+  const first = assert.rejects(
+    pool.run(route(), async () => {
+      worked++;
+    }),
+    ResourcePoolTimeoutError,
+  );
+  await tick();
+  callback = () => {
+    callback = () => {};
+    reentrant = assert.rejects(
+      pool.run(route(), async () => {
+        worked++;
+      }),
+      ResourcePoolTimeoutError,
+    );
+  };
+  time = 1000;
+  gate.resolve({});
+  await first;
+  await reentrant;
+  await pool.close();
+  assert.equal(worked, 0);
+  assert.equal(destroyed, 1);
+});
+test('factory publication rechecks terminal closure after a custom clock callback', async () => {
+  let callback = () => {},
+    destroyed = 0;
+  const gate = deferred<object>();
+  const pool = createTenantResourcePool({
+    clock: () => {
+      callback();
+      return 0;
+    },
+    create: () => gate.promise,
+    destroy: async () => {
+      destroyed++;
+    },
+  });
+  pool.setRoute(route());
+  const first = assert.rejects(
+    pool.run(route(), async () => assert.fail('closed publication')),
+    ResourcePoolClosedError,
+  );
+  await tick();
+  callback = () => {
+    callback = () => {};
+    void pool.close();
+  };
+  gate.resolve({});
+  await first;
+  await pool.close();
+  assert.equal(destroyed, 1);
+});
