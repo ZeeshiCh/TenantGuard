@@ -1,0 +1,22 @@
+{
+  "name": "@tenantguard/resources",
+  "version": "0.0.0",
+  "description": "Bounded tenant resource ownership, rotation and lifecycle",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@tenantguard/core": "workspace:*"
+  }
+}
