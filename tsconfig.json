@@ -35,7 +35,8 @@
       "@tenantguard/fastify": ["./packages/fastify/src/index.ts"],
       "@tenantguard/koa": ["./packages/koa/src/index.ts"],
       "@tenantguard/registry": ["./packages/registry/src/index.ts"],
-      "@tenantguard/resources": ["./packages/resources/src/index.ts"]
+      "@tenantguard/resources": ["./packages/resources/src/index.ts"],
+      "@tenantguard/lifecycle": ["./packages/lifecycle/src/index.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true

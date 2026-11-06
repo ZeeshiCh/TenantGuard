@@ -236,6 +236,21 @@ importers:
         specifier: ^3.0.0
         version: 3.3.0
 
+  packages/lifecycle:
+    dependencies:
+      '@tenantguard/core':
+        specifier: workspace:*
+        version: link:../core
+      '@tenantguard/postgres':
+        specifier: workspace:*
+        version: link:../postgres
+      '@types/pg':
+        specifier: ^8.16.0
+        version: 8.23.1
+      pg:
+        specifier: ^8.16.0
+        version: 8.23.1
+
   packages/mariadb:
     dependencies:
       '@tenantguard/core':

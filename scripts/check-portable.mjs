@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 // A browser-target bundle rejects node imports (including transitive ones).
 for (const [name, entryPoint] of [
+  ['lifecycle', 'packages/lifecycle/src/index.ts'],
   ['resources', 'packages/resources/src/index.ts'],
   ['registry', 'packages/registry/src/index.ts'],
   ['core', 'packages/core/src/index.ts'],

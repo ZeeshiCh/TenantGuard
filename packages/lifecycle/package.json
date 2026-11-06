@@ -1,0 +1,32 @@
+{
+  "name": "@tenantguard/lifecycle",
+  "version": "0.0.0",
+  "description": "Tenant provisioning, migration and fail-closed lifecycle management",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@tenantguard/core": "workspace:*",
+    "@types/pg": "^8.16.0",
+    "@tenantguard/postgres": "workspace:*"
+  },
+  "peerDependencies": {
+    "pg": "^8.16.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    }
+  }
+}

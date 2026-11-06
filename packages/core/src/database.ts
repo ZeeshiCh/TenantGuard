@@ -13,7 +13,13 @@ export interface TenantRoute {
   readonly resource: string;
   readonly secretRef?: string;
   readonly revision: string;
-  readonly status: 'active' | 'pending' | 'suspended' | 'migrating' | 'failed';
+  readonly status:
+    | 'active'
+    | 'pending'
+    | 'provisioning'
+    | 'suspended'
+    | 'migrating'
+    | 'failed';
   readonly mode: IsolationMode;
 }
 export interface TenantRegistry {

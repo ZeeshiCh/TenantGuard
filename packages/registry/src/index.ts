@@ -114,9 +114,14 @@ function snapshot(
   if (copy.secretRef !== undefined)
     reference(copy.secretRef, 'secret reference');
   if (
-    !['active', 'pending', 'suspended', 'migrating', 'failed'].includes(
-      copy.status,
-    ) ||
+    ![
+      'active',
+      'pending',
+      'provisioning',
+      'suspended',
+      'migrating',
+      'failed',
+    ].includes(copy.status) ||
     !['database-policy', 'database-per-tenant', 'application-filter'].includes(
       copy.mode,
     )
