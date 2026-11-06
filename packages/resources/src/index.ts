@@ -251,6 +251,8 @@ export function createTenantResourcePool<Resource extends object>(
     waiter.reject(error);
   };
   const rejectGeneration = (record: RecordState<Resource>, error: unknown) => {
+    // A retired native factory may settle after a replacement for the same route starts.
+    if (record.retired || record.slot.current !== record) return;
     for (const waiter of waiters)
       if (waiter.slot === record.slot && waiter.route === record.route)
         rejectWaiter(waiter, error);
@@ -311,6 +313,7 @@ export function createTenantResourcePool<Resource extends object>(
   function fatal(error: unknown) {
     failures.push(error);
     shutdown();
+    checkClose();
   }
   function start(slot: Slot<Resource>, time: number) {
     const record: RecordState<Resource> = {
@@ -329,15 +332,16 @@ export function createTenantResourcePool<Resource extends object>(
       retire(record);
       pump();
     }, createTimeout);
+    const skipped = Symbol('undispatched factory');
     void Promise.resolve()
-      .then(() => {
-        if (record.retired) return undefined;
+      .then<Resource | typeof skipped>(() => {
+        if (record.retired) return skipped;
         return create(record.route);
       })
       .then(
         (resource) => {
           clearTimeout(record.timer);
-          if (resource === undefined && record.retired) {
+          if (resource === skipped) {
             records.delete(record);
             pump();
             checkClose();
@@ -380,8 +384,8 @@ export function createTenantResourcePool<Resource extends object>(
         (error) => {
           clearTimeout(record.timer);
           records.delete(record);
-          if (slot.current === record) slot.current = undefined;
           rejectGeneration(record, error);
+          if (slot.current === record) slot.current = undefined;
           pump();
           checkClose();
         },

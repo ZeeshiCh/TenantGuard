@@ -143,6 +143,7 @@ test('per-tenant capacity pins old rotation leases while other tenants proceed',
   const pool = createTenantResourcePool({
     maxResources: 3,
     maxResourcesPerTenant: 1,
+    maxLeasesPerResource: 1,
     create: async () => ({ id: ++created }),
     destroy: async (resource) => {
       destroyed.push(resource.id);
@@ -157,7 +158,12 @@ test('per-tenant capacity pins old rotation leases while other tenants proceed',
     return resource.id;
   });
   await entered.promise;
+  const oldQueued = assert.rejects(
+    pool.run(route(), async () => assert.fail('rotated queue')),
+    ResourcePoolRouteError,
+  );
   pool.setRoute(route('Org_A', '2'), '1');
+  await oldQueued;
   const fresh = pool.run(route('Org_A', '2'), async (resource) => resource.id);
   assert.equal(await pool.run(route('B'), async (resource) => resource.id), 2);
   assert.equal(created, 2);
@@ -766,4 +772,70 @@ test('factory publication rechecks terminal closure after a custom clock callbac
   await first;
   await pool.close();
   assert.equal(destroyed, 1);
+});
+
+test('a dispatched factory returning undefined after shutdown is not mistaken for skipped work', async () => {
+  const gate = deferred<object>();
+  const pool = createTenantResourcePool({
+    create: () => gate.promise,
+    destroy: async () => assert.fail('unknown native handle'),
+    shutdownTimeoutMs: 1000,
+  });
+  pool.setRoute(route());
+  const request = assert.rejects(
+    pool.run(route(), async () => assert.fail('invalid resource')),
+    ResourcePoolClosedError,
+  );
+  await tick();
+  const closing = pool.close();
+  await request;
+  gate.resolve(undefined as unknown as object);
+  await assert.rejects(closing, ResourcePoolCleanupError);
+  assert.equal(pool.stats().closed, true);
+  assert.equal(pool.stats().resources, 0);
+});
+
+test('late retired factory settlement cannot reject a fresh factory for the same route revision', async () => {
+  for (const outcome of ['success', 'failure']) {
+    let time = 0,
+      calls = 0,
+      destroyed = 0;
+    const old = deferred<{ value: string }>(),
+      fresh = deferred<{ value: string }>();
+    const pool = createTenantResourcePool({
+      maxResources: 2,
+      maxResourcesPerTenant: 2,
+      clock: () => time,
+      createTimeoutMs: 1000,
+      acquireTimeoutMs: 5000,
+      create: () => (++calls === 1 ? old.promise : fresh.promise),
+      destroy: async () => {
+        destroyed++;
+      },
+    });
+    pool.setRoute(route());
+    const initial = assert.rejects(
+      pool.run(route(), async () => assert.fail('expired first factory')),
+      ResourcePoolTimeoutError,
+    );
+    await tick();
+    time = 1000;
+    pool.sweep();
+    await initial;
+    const replacement = pool
+      .run(route(), async (resource) => resource.value)
+      .then(
+        (value) => ({ value }),
+        (error) => ({ error }),
+      );
+    await tick();
+    assert.equal(calls, 2);
+    if (outcome === 'success') old.resolve({ value: 'old' });
+    else old.reject(new Error('old native factory failed'));
+    await tick();
+    fresh.resolve({ value: 'fresh' });
+    assert.deepEqual(await replacement, { value: 'fresh' });
+    await pool.close();
+    assert.equal(destroyed, outcome === 'success' ? 2 : 1);
+  }
 });
