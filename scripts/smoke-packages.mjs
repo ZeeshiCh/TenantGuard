@@ -85,6 +85,7 @@ try {
     'sqlserver',
     'mysql',
     'mariadb',
+    'mongodb',
   ])
     pack(join(root, 'packages', name), true);
   pack(
@@ -125,6 +126,10 @@ try {
     import { createSqlServerPool, createSqlServerAdapter } from '@tenantguard/sqlserver';
     import { createMysqlPool, createMysqlAdapter } from '@tenantguard/mysql';
     import { createMariadbPool, createMariadbAdapter } from '@tenantguard/mariadb';
+    import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
+    const mongoResource = createMongoResource({ uri: 'mongodb://localhost:27017', database: 'example' });
+    const mongoAdapter = createMongoAdapter({ resolveResource: () => mongoResource, collections: { orders: { collection: 'orders', tenantField: 'tenantId', idField: 'id', fields: ['id', 'tenantId', 'value'] } } });
+    await mongoResource.close();
     const guard = createTenantGuard({ carrier: nodeContext, authorize: () => ({ tenantId: 'Org_A' }) });
     const handler = withTenant(guard, (_request, context) => {
       assert.equal(requireTenant().tenantId, context.tenantId);
@@ -134,6 +139,8 @@ try {
     const pool = new pg.Pool({ max: 1, connectionTimeoutMillis: 100 });
     const adapter = createPgAdapter({ resolvePool: () => pool, tables: [{ schema: 'public', table: 'orders' }] });
     assert.equal(adapter.name, 'pg');
+    assert.equal(mongoAdapter.name, 'mongodb');
+    assert.throws(() => createTenantRouter({ strict: true, sources: { orders: { adapter: mongoAdapter, mode: 'application-filter' } }, registry: { resolve: async () => undefined } }));
     await pool.end();
     const sqlPool = createSqlServerPool({ connection: { server: 'localhost', options: { database: 'example', encrypt: true } } });
     const sqlAdapter = createSqlServerAdapter({ resolvePool: () => sqlPool, tables: [{ schema: 'dbo', table: 'orders' }] });
@@ -164,6 +171,10 @@ try {
     import { createSqlServerPool, createSqlServerAdapter, type SqlServerTenantClient } from '@tenantguard/sqlserver';
     import { createMysqlPool, createMysqlAdapter, type ScopedSqlClient } from '@tenantguard/mysql';
     import { createMariadbPool, createMariadbAdapter } from '@tenantguard/mariadb';
+    import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
+    const mongoResource = createMongoResource({ uri: 'mongodb://localhost:27017', database: 'example' });
+    const mongoAdapter = createMongoAdapter({ resolveResource: () => mongoResource, collections: { orders: { collection: 'orders', tenantField: 'tenantId', idField: 'id', fields: ['id', 'tenantId', 'value'] } } });
+    await mongoResource.close();
     const guard = createTenantGuard<Request>({ authorize: () => ({ tenantId: 'Org_A' }) });
     withTenant(guard, (_request, context) => new Response(context.tenantId));
     const adapter: DatabaseAdapter<{ query(): string }> = {
@@ -186,6 +197,8 @@ try {
     const mysqlAdapter: DatabaseAdapter<ScopedSqlClient> = createMysqlAdapter({ resolvePool: () => mysqlPool, tables });
     const mariaAdapter: DatabaseAdapter<ScopedSqlClient> = createMariadbAdapter({ resolvePool: () => mariaPool, tables });
     void mysqlAdapter; void mariaAdapter;
+    const typedMongo: DatabaseAdapter<import('@tenantguard/mongodb').MongoScopedClient> = mongoAdapter;
+    void typedMongo;
   `,
   );
   execFileSync(
@@ -205,7 +218,7 @@ try {
     { cwd: temporary, stdio: 'inherit' },
   );
   console.log(
-    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb: clean offline JavaScript and TypeScript consumers passed',
+    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb: clean offline JavaScript and TypeScript consumers passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
