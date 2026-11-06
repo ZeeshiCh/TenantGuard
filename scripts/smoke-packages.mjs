@@ -108,6 +108,7 @@ try {
   }
   for (const name of [
     'core',
+    'registry',
     'node',
     'fetch',
     'postgres',
@@ -198,6 +199,7 @@ try {
     import assert from 'node:assert/strict';
     import { createTenantGuard, createTenantRouter } from '@tenantguard/core';
     import { nodeContext, requireTenant } from '@tenantguard/node';
+    import { createCachedTenantRegistry } from '@tenantguard/registry';
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
     import { createPgAdapter } from '@tenantguard/postgres/pg';
@@ -209,6 +211,13 @@ try {
     import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
     import { createDrizzlePgResource, createDrizzleMysqlResource, createDrizzleAdapter } from '@tenantguard/drizzle';
     import { pgTable, text } from 'drizzle-orm/pg-core';
+    let registryLoads=0;
+    const registry=createCachedTenantRegistry({registry:{resolve:async(context,source)=>({tenantId:context.tenantId,source,adapter:'fixture',resource:'pool',revision:String(++registryLoads),status:'active',mode:'database-policy'})}});
+    const routes=await Promise.all(Array.from({length:10},()=>registry.resolve({tenantId:'Org_A'},'orders')));
+    assert.equal(registryLoads,1);assert(Object.isFrozen(routes[0]));
+    registry.invalidate({tenantId:'Org_A',source:'orders'});
+    assert.equal((await registry.resolve({tenantId:'Org_A'},'orders')).revision,'2');
+    await registry.close();await assert.rejects(registry.resolve({tenantId:'Org_A'},'orders'));
     const drizzleOrders=pgTable('orders',{id:text('id').primaryKey(),tenantId:text('tenant_id').notNull(),value:text('value')});
     const drizzleResource=createDrizzlePgResource({connection:{host:'localhost'}});
     const drizzleAdapter=createDrizzleAdapter({resolveResource:()=>drizzleResource,tables:{orders:{table:drizzleOrders,tenantColumn:'tenantId',idColumn:'id',columns:['id','tenantId','value']}}});
@@ -293,6 +302,7 @@ try {
     join(temporary, 'consumer.ts'),
     `
     import { createTenantGuard, createTenantRouter, type DatabaseAdapter } from '@tenantguard/core';
+    import { createCachedTenantRegistry } from '@tenantguard/registry';
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
     import { createPgAdapter, type PgTenantClient } from '@tenantguard/postgres/pg';
@@ -302,6 +312,11 @@ try {
     import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
     import { createSqliteResource, createSqliteAdapter } from '@tenantguard/sqlite';
     import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
+    const registry: import('@tenantguard/core').TenantRegistry = createCachedTenantRegistry({registry:{resolve:async()=>undefined},maxEntries:10});
+    const cache=createCachedTenantRegistry({registry});
+    cache.invalidate({tenantId:'Org_A'});await cache.close();
+    // @ts-expect-error Tenant IDs remain opaque strings.
+    cache.invalidate({tenantId:1});
     const prismaDatamodel={models:[{name:'Order',dbName:'orders',fields:['id','tenantId','value'].map(name=>({name,kind:'scalar',type:'String',isList:false,isRequired:true}))}]};
     const prismaResource=createPrismaResource({provider:'postgresql',datamodel:prismaDatamodel,createClient:()=>({$transaction:async work=>work({$queryRawUnsafe:async()=>[{safe:true}]}),$disconnect:async()=>{}})});
     const prismaAdapter=createPrismaAdapter({resolveResource:()=>prismaResource,models:{orders:{model:'Order',tenantField:'tenantId',idField:'id',fields:['id','tenantId','value']}}});
@@ -540,7 +555,7 @@ try {
     { cwd: mongooseTemporary, stdio: 'inherit' },
   );
   console.log(
-    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed; isolated Mongoose driver closure passed',
+    'Packed core/registry/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed; isolated Mongoose driver closure passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
