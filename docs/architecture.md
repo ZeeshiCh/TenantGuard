@@ -33,21 +33,35 @@ Modes are `database-policy`, `database-per-tenant` and `application-filter`. Ada
 
 A DatabaseAdapter owns acquisition, enforcement, transaction/session lifetime and cleanup before its run promise resolves. It must discard connections when cleanup is uncertain. Clients must not escape callbacks. Core does not implement those lifecycle details or intercept arbitrary external queries.
 
-The implemented `createTypeormPostgresAdapter(resolveSource)` bridges the portable router to existing PostgreSQL enforcement. Its resolver maps allowlisted resource references to configured DataSources. Only database-policy mode is currently supported by this adapter. Named sources do not imply cross-source ACID transactions. Nested tenant transaction helpers are rejected; use the callback manager for queries in the existing transaction. Savepoint/reuse behavior is deferred until separately specified and tested.
+The `createTypeormPostgresAdapter(resolveSource)` bridges the portable router to existing PostgreSQL enforcement. Its resolver maps allowlisted resource references to configured DataSources. Only database-policy mode is currently supported by this adapter. Named sources do not imply cross-source ACID transactions. Nested tenant transaction helpers are rejected; use the callback manager for queries in the existing transaction. Savepoint/reuse behavior is deferred until separately specified and tested.
+
+## Direct PostgreSQL lifecycle
+
+The `@tenantguard/postgres/pg` subpath provides `createPgAdapter` without adding a framework or ORM dependency. It consumes the same DatabaseAdapter contract and explicit context as TypeORM. The SQL helper root entry point does not load the driver adapter.
+
+The adapter requires a dedicated pg pool and declared ordinary protected tables. Before callback execution it checks role identity, reachable privileged roles, FORCE/enabled RLS, table ownership/TRUNCATE/schema CREATE privileges, a UUID NOT NULL tenant column and an all-command PUBLIC restrictive policy. Policy expressions and undeclared tables still require independent review.
+
+Connections are pinned through transaction-local settings and commit/rollback. Acquisition, work, statements, locks and cleanup have bounded limits. A late-acquired connection is destroyed. The promise-only query facade uses unnamed extended-protocol statements and rejects raw transaction/session commands. Pending or swallowed failed queries cannot lead to commit. Closed/escaped facades reject new work.
+
+Cleanup verifies no session tenant remains, resets settings/role and releases advisory locks. Cleanup uncertainty, socket errors, timeouts and safety failures destroy the client. Errors distinguish committed, not-committed and unknown outcomes where necessary; callers must not equate every failure with safe-to-retry rollback. A callback timeout cannot cancel arbitrary non-database application side effects.
+
+The TypeORM adapter keeps its own lifecycle; the direct adapter does not wrap or certify ORM pool behavior. See the [pg guide](../packages/postgres/README.md) for details and unsupported features.
+
+Reusable `adapterConformanceCases` are independent of a test runner and driver. Fixtures map each driver's operations to common seeded records; cases check isolation, CRUD, rejected ownership changes, missing context/routes, concurrency and requested rollback guarantees. Both TypeORM and direct pg execute the suite against PostgreSQL. Driver-specific lifecycle tests supplement it.
 
 ## Current support
 
-| Area                            | Implemented                                                                                  | Still planned                                            |
-| ------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Portable core                   | Explicit scopes, authorization contract, routing/capability contracts                        | Registry cache/provisioning, full diagnostics            |
-| Node                            | Default and isolated AsyncLocalStorage carriers                                              | Worker/stream-specific lifecycle certification           |
-| Fetch                           | Request handler wrapper; explicit context                                                    | Platform-specific runtime certification                  |
-| Hono                            | Typed middleware; explicit context or supplied Node carrier; request-level concurrency tests | Bun/Deno/Workers certification, full HTTP server example |
-| NestJS                          | Authorizer option, legacy resolver, interceptor/decorator; subscription lifecycle tests      | Full HTTP/e2e and non-HTTP integrations                  |
-| PostgreSQL                      | UUID policy generation, TypeORM convenience helper and router bridge; real DB tests          | Broader role/session/partition hardening                 |
-| Other databases/ORMs/frameworks | Public contracts only                                                                        | Concrete adapters and real-engine conformance suites     |
+| Area                            | Implemented                                                                                                | Still planned                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Portable core                   | Explicit scopes, authorization contract, routing/capability contracts                                      | Registry cache/provisioning, full diagnostics                                          |
+| Node                            | Default and isolated AsyncLocalStorage carriers                                                            | Worker/stream-specific lifecycle certification                                         |
+| Fetch                           | Request handler wrapper; explicit context                                                                  | Platform-specific runtime certification                                                |
+| Hono                            | Typed middleware; explicit context or supplied Node carrier; request-level concurrency tests               | Bun/Deno/Workers certification, full HTTP server example                               |
+| NestJS                          | Authorizer option, legacy resolver, interceptor/decorator; subscription lifecycle tests                    | Full HTTP/e2e and non-HTTP integrations                                                |
+| PostgreSQL                      | UUID policies, direct pg adapter with guarded lifecycle, TypeORM helpers; shared real-database conformance | Policy-expression analysis, partition/proxy certification and TypeORM lifecycle parity |
+| Other databases/ORMs/frameworks | Public contracts only                                                                                      | Concrete adapters and real-engine conformance suites                                   |
 
-Portability checks build core/Fetch/Hono for a browser target and reject Node imports in that graph. They establish an import boundary, not certification of edge deployment or database connectivity. Packed core/Node/Fetch packages are installed into an isolated temporary consumer offline and tested as JavaScript and TypeScript.
+Portability checks build core/Fetch/Hono for a browser target and reject Node imports in that graph. They establish an import boundary, not certification of edge deployment or database connectivity. Packed core/Node/Fetch/PostgreSQL packages are installed into an isolated temporary consumer offline and tested as JavaScript and TypeScript.
 
 ## Phase 0 verification and limitations
 
@@ -55,4 +69,4 @@ The previous integration test had never completed locally. Running it against Po
 
 CI uses clean frozen-lockfile installs, formatting, strict TypeScript unused-symbol checks, unit tests, portability bundles, package builds, packed-package consumer smoke tests and PostgreSQL integration testing. Node 22 and 24 are configured as CI targets; local results do not claim remote CI has already run. No independent security review has occurred.
 
-Remaining foundation work includes production pool/registry lifecycle, nested transaction specification beyond explicit rejection, additional framework and database adapters, runtime certification and independent review. The full roadmap is not complete.
+Remaining foundation work includes production pool/registry lifecycle, nested transaction specification beyond explicit rejection, additional framework and database adapters, runtime certification and independent review. The full roadmap is not complete. The direct pg and conformance milestone is recorded in [progress](progress.md).

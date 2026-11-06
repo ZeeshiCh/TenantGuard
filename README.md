@@ -2,7 +2,7 @@
 
 Multi-tenancy foundations for JavaScript and TypeScript backends.
 
-Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono and Fetch integrations are implemented. PostgreSQL + TypeORM is the only concrete database integration today; other databases have contracts, not implemented adapters.
+Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono and Fetch integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; other databases have contracts, not implemented adapters.
 
 See the [implementation plan](docs/implementation-plan.md), [architecture and current support](docs/architecture.md), and [security model](docs/security.md).
 
@@ -16,7 +16,7 @@ pnpm check
 pnpm test:integration
 ```
 
-`pnpm check` runs formatting, strict type checks, unit tests, browser-target portability builds, package builds and clean packed-package JavaScript/TypeScript consumer tests. Database tests launch disposable PostgreSQL 17 through Testcontainers. CI also configures Node 22 and 24 checks. `pnpm format` formats sources and documentation.
+`pnpm check` runs formatting, strict type checks, unit tests, browser-target portability builds, package builds and clean packed-package JavaScript/TypeScript consumer tests, including the direct pg entry point. Database tests launch disposable PostgreSQL 17 through Testcontainers. CI also configures Node 22 and 24 checks. `pnpm format` formats sources and documentation.
 
 ## Portable authorization
 
@@ -42,6 +42,21 @@ await guard.run(request, async (context) => {
 ```
 
 Tenant IDs are bounded, case-sensitive strings. TenantGuard does not trust raw tenant headers or authenticate credentials. Database adapters validate their own encodings.
+
+## Direct pg adapter
+
+`@tenantguard/postgres/pg` exports `createPgAdapter`. It accepts dedicated pg pools and declared protected tables, then works through the portable router with explicit tenant context from any Node framework. It pins a connection, checks role/table safety flags, sets transaction-local tenant context, bounds work and cleanup, and destroys connections that cannot be safely reused.
+
+```ts
+const adapter = createPgAdapter({
+  resolvePool: (route) => lookupAllowlistedPool(route.resource),
+  tables: [{ schema: 'public', table: 'orders' }],
+});
+```
+
+The client exposes parameterized, single data statements rather than the raw PoolClient. Commit failures and cleanup failures carry outcome information so callers can avoid unsafe automatic retries. See the [pg adapter guide](packages/postgres/README.md) for imports, configuration, pool ownership, restrictions and error semantics. These safeguards apply to the direct adapter; they do not replace TypeORM's connection handling.
+
+`adapterConformanceCases` from `@tenantguard/testing` supplies runner-independent isolation/CRUD/rollback cases. Both PostgreSQL adapters run it against a real database; see the [conformance guide](packages/testing/README.md).
 
 ## Node and TypeORM
 

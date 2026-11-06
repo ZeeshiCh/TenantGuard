@@ -1,6 +1,6 @@
 # Security model
 
-The portable core and framework adapters provide authorization/context/routing boundaries. The database guarantees below describe only the implemented PostgreSQL + TypeORM path. Other database adapters remain planned. See [architecture](architecture.md) for current support.
+The portable core and framework adapters provide authorization/context/routing boundaries. The database guarantees below describe PostgreSQL policies used by the implemented TypeORM and direct pg paths. Other database adapters remain planned. See [architecture](architecture.md) for current support.
 
 Core tenant IDs are case-sensitive. The PostgreSQL UUID adapter requires canonical lowercase UUIDs to avoid treating different string identities as one database UUID. Trusted context constructors do not authenticate or authorize; use a membership-checking authorizer at request boundaries.
 
@@ -10,10 +10,18 @@ The application database role must be NOSUPERUSER NOBYPASSRLS, must not own tabl
 
 The policy generator creates a permissive policy to allow matching rows and a restrictive policy to bound other permissive policies. Both use USING and WITH CHECK. Missing or empty tenant settings produce no matches; malformed settings fail the query. Tenant columns must be UUID NOT NULL. Policies apply to ordinary CRUD, not TRUNCATE. Do not grant TRUNCATE. Review views, partitions, security-definer functions, referential-integrity error disclosures and side channels separately.
 
-Tenant context is transaction-local. All queries must use the manager supplied by withTenantTransaction. Session-level tenant settings are unsupported: never use SET or set_config(..., false) for tenant context on the application pool. PostgreSQL restores prior session settings after a transaction; a contaminated pool must be discarded. Each request or background job must enter its own runWithTenant scope and await its database work.
+Tenant context is transaction-local. All queries must use the manager supplied by withTenantTransaction or the callback client supplied by the direct pg adapter. Session-level tenant settings are unsupported: never use SET or set_config(..., false) for tenant context on the application pool. PostgreSQL restores prior session settings after a transaction; a contaminated pool must be discarded. Each request or background job must establish its own authorized context and await its database work. The direct router path uses explicit context; the TypeORM convenience helper uses the Node carrier. runWithTenant is a trusted application primitive, not a membership check.
 
 RLS using a custom setting does not protect against arbitrary SQL injection or malicious application code: the database role can change that setting. Parameterize queries and secure application credentials. TenantGuard does not implement identity verification, tenant provisioning, per-tenant encryption, rate limits or a security sandbox.
 
 The audit CLI checks catalog flags and policy presence only. It does not validate policy semantics, effective role membership, grants, owners, functions or views. Its output must not be used as certification.
 
 References: [PostgreSQL row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html), [transaction-local configuration](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADMIN-SET).
+
+## Direct pg adapter boundary
+
+The direct adapter requires dedicated pools and performs additional role, declared-table and session checks, with bounded cleanup and connection destruction when reuse is uncertain. Its query facade rejects transaction/session commands and multiple SQL statements; it is not a sandbox against malicious trusted SQL/functions. Policy expressions, all undeclared tables, SECURITY DEFINER functions, views and privileged infrastructure still need independent review. The presence of a restrictive policy does not prove that its predicate is correct.
+
+After a COMMIT attempt, an error may mean writes already committed or that their outcome is unknown. Read commitOutcome on PgTimeoutError/PgCleanupError/PgCommitError, preserve idempotency keys and reconcile uncertain operations instead of blindly retrying. Ordinary callback errors are preserved when rollback succeeds. See the [direct adapter guide](../packages/postgres/README.md) for pool ownership and supported statements.
+
+TypeORM retains its existing lifecycle implementation and does not automatically gain the direct adapter's cleanup/timeout protections. No independent security review or PostgreSQL partition/proxy certification is claimed.

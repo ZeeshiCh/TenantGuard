@@ -23,11 +23,21 @@ Verified locally:
 
 CI is configured but has not been run on a GitHub remote. PostgreSQL's integration suite is one end-to-end test with multiple security assertions. It is not independent security review or certification of all PostgreSQL features.
 
-Next milestones:
-
-1. Specify reusable adapter conformance tests and transaction/session capabilities in greater depth.
-2. Harden PostgreSQL role/session/connection lifecycle and add a direct pg adapter.
-3. Implement SQL Server native-policy adapter and verify session cleanup against a real engine.
-4. Add remaining databases, framework adapters and ORMs according to the [complete plan](implementation-plan.md).
+The reusable conformance and direct pg follow-up is recorded below. SQL Server and the remaining database/framework/ORM adapters remain on the [complete plan](implementation-plan.md).
 
 No packages have been published and no application has been deployed. Database families other than PostgreSQL remain unimplemented. Bun/Deno/edge runtimes, full framework HTTP servers and distributed transaction semantics are not certified by this milestone.
+
+## Reusable conformance and direct pg milestone — November 6, 2026
+
+Implemented:
+
+- Runner-independent adapter conformance cases with fresh fixtures, driver-specific CRUD hooks, positive write checks, cross-tenant denial, concurrent scopes, rollback and reliable fixture cleanup.
+- Direct Node pg adapter under @tenantguard/postgres/pg, composed with the portable multi-source router and explicit contexts.
+- Dedicated-pool acquisition deadlines, late-client destruction, pinned transactions, transaction-local tenant/timeout/search-path settings, closed client facades and swallowed-query failure tracking.
+- Runtime and reachable-role checks, declared-table RLS/FORCE/ownership/TRUNCATE/schema privilege checks, UUID column checks and restrictive-policy presence checks.
+- Bounded rollback/session cleanup; destruction on contamination, timeout, socket errors, uncertain commit or cleanup failure; explicit commit-outcome errors.
+- Packed PostgreSQL entry-point and declaration testing in an offline clean JavaScript/TypeScript consumer using locally packed driver/type dependencies.
+
+Validation: 67 unit tests and 31 real PostgreSQL integration tests (including parent tests), with both adapters running the same seven conformance cases and 13 direct-driver lifecycle subtests. Package builds, formatting/type checks, portability bundles and clean packed-package consumers pass locally. GitHub CI has not been run remotely.
+
+Remaining work includes policy-expression analysis, PostgreSQL partitions/pooling proxies, TypeORM lifecycle parity, pool/registry management beyond the driver-owned dedicated pool, other databases and independent review. This milestone certifies neither arbitrary SQL nor every PostgreSQL deployment topology. Nothing has been published or deployed.
