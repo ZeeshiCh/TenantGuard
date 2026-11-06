@@ -23,7 +23,9 @@
       "@tenantguard/scoped-sql": ["./packages/scoped-sql/src/index.ts"],
       "@tenantguard/mysql": ["./packages/mysql/src/index.ts"],
       "@tenantguard/mariadb": ["./packages/mariadb/src/index.ts"],
-      "@tenantguard/mongodb": ["./packages/mongodb/src/index.ts"]
+      "@tenantguard/mongodb": ["./packages/mongodb/src/index.ts"],
+      "@tenantguard/sqlite": ["./packages/sqlite/src/index.ts"],
+      "@tenantguard/scoped-sql/compiler": ["./packages/scoped-sql/src/crud.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true

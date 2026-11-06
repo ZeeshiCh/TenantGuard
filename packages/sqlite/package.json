@@ -1,0 +1,26 @@
+{
+  "name": "@tenantguard/sqlite",
+  "version": "0.0.0",
+  "description": "TenantGuard SQLite tenant-scoped CRUD and worker-owned transactions",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@tenantguard/core": "workspace:*",
+    "@tenantguard/scoped-sql": "workspace:*"
+  }
+}

@@ -212,6 +212,15 @@ importers:
         specifier: ^3.0.2
         version: 3.1.2
 
+  packages/sqlite:
+    dependencies:
+      '@tenantguard/core':
+        specifier: workspace:*
+        version: link:../core
+      '@tenantguard/scoped-sql':
+        specifier: workspace:*
+        version: link:../scoped-sql
+
   packages/sqlserver:
     dependencies:
       '@tenantguard/core':
