@@ -27,7 +27,10 @@
       "@tenantguard/sqlite": ["./packages/sqlite/src/index.ts"],
       "@tenantguard/scoped-sql/compiler": ["./packages/scoped-sql/src/crud.ts"],
       "@tenantguard/prisma": ["./packages/prisma/src/index.ts"],
-      "@tenantguard/drizzle": ["./packages/drizzle/src/index.ts"]
+      "@tenantguard/drizzle": ["./packages/drizzle/src/index.ts"],
+      "@tenantguard/mongoose": ["./packages/mongoose/src/index.ts"],
+      "@tenantguard/mongodb/guards": ["./packages/mongodb/src/guards.ts"],
+      "@tenantguard/scoped-mongo": ["./packages/scoped-mongo/src/index.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true

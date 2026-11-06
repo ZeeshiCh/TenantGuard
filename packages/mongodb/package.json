@@ -11,6 +11,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./guards": {
+      "types": "./dist/guards.d.ts",
+      "import": "./dist/guards.js"
     }
   },
   "scripts": {
@@ -18,7 +22,8 @@
   },
   "dependencies": {
     "@tenantguard/core": "workspace:*",
-    "mongodb": "^6.20.0"
+    "mongodb": "^6.20.0",
+    "@tenantguard/scoped-mongo": "workspace:*"
   },
   "peerDependencies": {}
 }

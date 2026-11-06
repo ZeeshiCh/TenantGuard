@@ -45,6 +45,7 @@
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/adapter-mariadb": "7.10.1",
     "@prisma/generator-helper": "7.10.1",
-    "drizzle-orm": "0.45.4"
+    "drizzle-orm": "0.45.4",
+    "mongoose": "9.12.0"
   }
 }
