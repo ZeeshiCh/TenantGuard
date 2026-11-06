@@ -7,6 +7,7 @@ for (const [name, entryPoint] of [
   ['hono', 'packages/hono/src/index.ts'],
   ['drizzle/guards', 'packages/drizzle/src/guards.ts'],
   ['prisma/guards', 'packages/prisma/src/guards.ts'],
+  ['mongoose/guards', 'packages/mongoose/src/guards.ts'],
   ['mongodb/guards', 'packages/mongodb/src/guards.ts'],
   ['scoped-sql/compiler', 'packages/scoped-sql/src/crud.ts'],
 ]) {

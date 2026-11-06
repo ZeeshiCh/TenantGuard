@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   writeFileSync,
   readFileSync,
@@ -12,22 +13,46 @@ import { join, resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 const root = resolve('.');
 const temporary = mkdtempSync(join(tmpdir(), 'tenantguard-consumer-'));
+function installPacked(directory) {
+  const packages = readdirSync(directory)
+    .filter((file) => file.endsWith('.tgz'))
+    .map((file) => join(directory, file));
+  execFileSync(
+    'npm',
+    [
+      'install',
+      '--offline',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      '--cache',
+      join(directory, 'cache'),
+      ...packages,
+    ],
+    { cwd: directory, stdio: 'pipe' },
+  );
+}
 try {
   const packed = new Map();
-  function pack(directory, workspace = false) {
+  function pack(
+    directory,
+    workspace = false,
+    destination = temporary,
+    graph = packed,
+  ) {
     const manifest = JSON.parse(
       readFileSync(join(directory, 'package.json'), 'utf8'),
     );
-    if (packed.has(manifest.name)) {
-      if (packed.get(manifest.name) !== manifest.version)
+    if (graph.has(manifest.name)) {
+      if (graph.get(manifest.name) !== manifest.version)
         throw new Error(
           `Consumer fixture needs conflicting versions of ${manifest.name}`,
         );
       return;
     }
-    packed.set(manifest.name, manifest.version);
+    graph.set(manifest.name, manifest.version);
     if (workspace) {
-      execFileSync('pnpm', ['pack', '--pack-destination', temporary], {
+      execFileSync('pnpm', ['pack', '--pack-destination', destination], {
         cwd: directory,
         stdio: 'pipe',
       });
@@ -39,11 +64,11 @@ try {
           directory,
           '--ignore-scripts',
           '--pack-destination',
-          temporary,
+          destination,
           '--cache',
-          join(temporary, 'cache'),
+          join(destination, 'cache'),
         ],
-        { cwd: temporary, stdio: 'pipe' },
+        { cwd: destination, stdio: 'pipe' },
       );
     }
     const require = createRequire(join(directory, 'package.json'));
@@ -52,6 +77,8 @@ try {
         pack(
           join(root, 'packages', dependency.slice('@tenantguard/'.length)),
           true,
+          destination,
+          graph,
         );
         continue;
       }
@@ -74,7 +101,7 @@ try {
           dependencyDirectory = parent;
         }
       }
-      pack(dependencyDirectory);
+      pack(dependencyDirectory, false, destination, graph);
     }
   }
   for (const name of [
@@ -100,23 +127,7 @@ try {
     join(temporary, 'package.json'),
     JSON.stringify({ private: true, type: 'module' }),
   );
-  const packages = readdirSync(temporary)
-    .filter((file) => file.endsWith('.tgz'))
-    .map((file) => join(temporary, file));
-  execFileSync(
-    'npm',
-    [
-      'install',
-      '--offline',
-      '--ignore-scripts',
-      '--no-audit',
-      '--no-fund',
-      '--cache',
-      join(temporary, 'cache'),
-      ...packages,
-    ],
-    { cwd: temporary, stdio: 'pipe' },
-  );
+  installPacked(temporary);
   // Execute the installed companion generator through the real Prisma CLI.
   writeFileSync(
     join(temporary, 'metadata.prisma'),
@@ -382,8 +393,86 @@ try {
     ],
     { cwd: temporary, stdio: 'inherit' },
   );
+  // Mongoose owns MongoDB driver 7; the existing direct adapter owns driver 6.
+  // Verify each actual dependency closure independently, without flattening or
+  // replacing either driver's BSON/session classes with another major version.
+  const mongooseTemporary = join(temporary, 'mongoose-consumer');
+  mkdirSync(mongooseTemporary);
+  const mongoosePacked = new Map();
+  pack(
+    join(root, 'packages/mongoose'),
+    true,
+    mongooseTemporary,
+    mongoosePacked,
+  );
+  pack(
+    dirname(
+      createRequire(join(root, 'package.json')).resolve(
+        '@types/node/package.json',
+      ),
+    ),
+    false,
+    mongooseTemporary,
+    mongoosePacked,
+  );
+  writeFileSync(
+    join(mongooseTemporary, 'package.json'),
+    JSON.stringify({ private: true, type: 'module' }),
+  );
+  installPacked(mongooseTemporary);
+  writeFileSync(
+    join(mongooseTemporary, 'consumer.mjs'),
+    `
+    import assert from 'node:assert/strict';
+    import {createTenantRouter} from '@tenantguard/core';
+    import {createMongooseResource,createMongooseAdapter} from '@tenantguard/mongoose';
+    const resource=createMongooseResource({uri:'mongodb://localhost:27017',database:'example',models:{orders:{collection:'orders',tenantField:'tenantId',idField:'id',fields:{id:{type:'string',required:true},tenantId:{type:'string',required:true},value:{type:'string',required:true}}}}});
+    const adapter=createMongooseAdapter({resolveResource:()=>resource});
+    assert.equal(adapter.name,'mongoose');
+    assert.throws(()=>createTenantRouter({strict:true,sources:{orders:{adapter,mode:'application-filter'}},registry:{resolve:async()=>undefined}}));
+    await resource.close();
+    await assert.rejects(()=>adapter.run({tenantId:'Org_A'},{tenantId:'Org_A',adapter:'mongoose',source:'orders',resource:'main',revision:'1',status:'active',mode:'application-filter'},async()=>assert.fail('closed resource callback')));
+  `,
+  );
+  execFileSync(process.execPath, ['consumer.mjs'], {
+    cwd: mongooseTemporary,
+    stdio: 'inherit',
+  });
+  writeFileSync(
+    join(mongooseTemporary, 'consumer.ts'),
+    `
+    import {createMongooseResource,createMongooseAdapter,type MongooseScopedClient} from '@tenantguard/mongoose';
+    import type {DatabaseAdapter} from '@tenantguard/core';
+    const resource=createMongooseResource({uri:'mongodb://localhost:27017',database:'example',models:{orders:{collection:'orders',tenantField:'tenantId',idField:'id',fields:{id:{type:'string',required:true},tenantId:{type:'string',required:true},value:{type:'string',required:true}}}}});
+    const adapter:DatabaseAdapter<MongooseScopedClient>=createMongooseAdapter({resolveResource:()=>resource});
+    const read=(client:MongooseScopedClient)=>client.model<{id:string;tenantId:string;value:string}>('orders').find();
+    function invalid(client:MongooseScopedClient){
+      // @ts-expect-error Raw operators are not scalar values.
+      void client.model('orders').find({id:{$ne:'foreign'}});
+      // @ts-expect-error Native query options are not in the facade.
+      void client.model('orders').find({}, {populate:'foreign'});
+    }
+    void adapter;void read;void invalid;
+  `,
+  );
+  execFileSync(
+    process.execPath,
+    [
+      join(root, 'node_modules/typescript/bin/tsc'),
+      '--strict',
+      '--noEmit',
+      '--target',
+      'ES2022',
+      '--module',
+      'NodeNext',
+      '--moduleResolution',
+      'NodeNext',
+      'consumer.ts',
+    ],
+    { cwd: mongooseTemporary, stdio: 'inherit' },
+  );
   console.log(
-    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed',
+    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed; isolated Mongoose driver closure passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
