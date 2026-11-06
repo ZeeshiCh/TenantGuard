@@ -11,11 +11,25 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./pg": {
+      "types": "./dist/pg.d.ts",
+      "import": "./dist/pg.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
   },
-  "dependencies": {},
-  "peerDependencies": {}
+  "dependencies": {
+    "@tenantguard/core": "workspace:*",
+    "@types/pg": "^8.16.0"
+  },
+  "peerDependencies": {
+    "pg": "^8.16.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    }
+  }
 }

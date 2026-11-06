@@ -1,3 +1,6 @@
+import pg from 'pg';
+import { createPgAdapter } from '../packages/postgres/src/pg.js';
+import type { ConformanceRecord } from '../packages/testing/src/conformance.js';
 import 'reflect-metadata';
 import { test } from 'node:test';
 import { DataSource } from 'typeorm';
@@ -44,3 +47,34 @@ test(
     }
   },
 );
+
+test('direct pg adapter conformance', { timeout: 120000 }, async (t) => {
+  const database = await postgresFixture();
+  try {
+    const cases = adapterConformanceCases({
+      transactional: true,
+      createFixture: async () => {
+        const pool = new pg.Pool({ ...database.config, max: 1 });
+        try {
+          return await sqlConformanceFixture({
+            admin: database.admin,
+            adapter: createPgAdapter({
+              resolvePool: () => pool,
+              tables: [{ schema: 'public', table: 'orders' }],
+            }),
+            execute: async (client, text, values) =>
+              (await client.query<ConformanceRecord>(text, values)).rows,
+            close: () => pool.end(),
+          });
+        } catch (error) {
+          await pool.end();
+          throw error;
+        }
+      },
+    });
+    for (const conformance of cases)
+      await t.test(conformance.name, conformance.run);
+  } finally {
+    await database.close();
+  }
+});

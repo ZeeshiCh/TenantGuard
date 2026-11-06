@@ -17,7 +17,8 @@
       "@tenantguard/testing": ["./packages/testing/src/index.ts"],
       "@tenantguard/node": ["./packages/node/src/index.ts"],
       "@tenantguard/fetch": ["./packages/fetch/src/index.ts"],
-      "@tenantguard/hono": ["./packages/hono/src/index.ts"]
+      "@tenantguard/hono": ["./packages/hono/src/index.ts"],
+      "@tenantguard/postgres/pg": ["./packages/postgres/src/pg.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true
