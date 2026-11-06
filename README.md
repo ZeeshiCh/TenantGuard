@@ -166,7 +166,7 @@ node packages/cli/dist/index.js doctor --config examples/tenantguard.diagnostics
 node packages/cli/dist/index.js audit --config examples/tenantguard.diagnostics.json --json
 ```
 
-The CLI validates explicit JSON configuration and environment references, then performs read-only checks of declared targets across PostgreSQL, SQL Server, MySQL, MariaDB, MongoDB and SQLite. Doctor is offline unless `--connect` is supplied; audit connects. It reuses the already-published `tenant-audit@0.2.0` and `db-deploy-doctor@0.2.0` where supported. See the [CLI guide](packages/cli/README.md) for configuration, coverage, exit codes and limitations, and [ecosystem integration](docs/ecosystem.md) for the existing shipped tools.
+The CLI validates explicit JSON configuration and environment references, then performs read-only checks of declared targets across PostgreSQL, SQL Server, MySQL, MariaDB, MongoDB and SQLite. Doctor is offline unless `--connect` is supplied; audit connects. It reuses the already-published `tenant-audit@0.2.0` and `db-deploy-doctor@0.2.0` where supported. The CLI also provides exclusive `init`, offline `generate-policy` and bounded fixture-based `test-isolation` commands. See the [CLI guide](packages/cli/README.md) for configuration, coverage, exit codes and limitations, and [ecosystem integration](docs/ecosystem.md) for the existing shipped tools.
 
 ## Layout and release status
 
@@ -191,3 +191,7 @@ Wrap any `TenantRegistry` with `createCachedTenantRegistry` from `@tenantguard/r
 ## Tenant provisioning and migrations
 
 `@tenantguard/lifecycle` manages pending/provisioning/active/migrating/suspended/failed transitions with version checks, verification and explicit recovery. The PostgreSQL backend commits transactional schema/data changes with active metadata and fences requests in their actual data transaction, so stale cached routes cannot bypass migration state. See the [lifecycle guide](packages/lifecycle/README.md) for role separation, resource/cache hooks and recovery/commit-uncertainty handling. Durable execution is currently certified for co-located PostgreSQL schema/data; the portable reference store is single-process.
+
+## Benchmarks
+
+`pnpm benchmark --engine core --iterations 1000 --warmup 100` measures portable routing and Node context/authorization. `--engine all` adds disposable PostgreSQL and real SQLite complete-scope measurements. Results include environment metadata, validated sample counts, warmup exclusion and latency distributions; see [methodology and a recorded local run](benchmarks/README.md). These serial development measurements do not establish production capacity.
