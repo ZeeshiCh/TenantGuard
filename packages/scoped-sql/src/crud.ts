@@ -95,14 +95,24 @@ export function createScopedSqlCompiler(
   database: string,
   input: ScopedSqlTable,
   tenantId: string,
+  options: { readonly dialect?: 'mysql' | 'sqlite' } = {},
 ) {
-  quoteScopedSqlIdentifier(database);
+  const dialect = options.dialect ?? 'mysql';
+  if (!['mysql', 'sqlite'].includes(dialect))
+    throw new TypeError('Unsupported SQL dialect');
+  const quote = (name: string) => {
+    quoteScopedSqlIdentifier(name);
+    return dialect === 'sqlite'
+      ? '"' + name + '"'
+      : quoteScopedSqlIdentifier(name);
+  };
+  quote(database);
   validateTenantId(tenantId);
   validateUtf8Text(tenantId);
   const table = validateScopedSqlTable(input),
-    target = `${quoteScopedSqlIdentifier(database)}.${quoteScopedSqlIdentifier(table.table)}`;
+    target = `${quote(database)}.${quote(table.table)}`;
   const allowed = new Set(table.columns),
-    tenant = quoteScopedSqlIdentifier(table.tenantColumn);
+    tenant = quote(table.tenantColumn);
   const entries = (value: ScopedSqlFilter) => {
     if (!value || typeof value !== 'object' || Array.isArray(value))
       throw new TypeError('Expected a column/value object');
@@ -117,15 +127,21 @@ export function createScopedSqlCompiler(
     if (writing && !pairs.some(([column]) => column !== table.tenantColumn))
       throw new TypeError('Writes require a non-tenant equality filter');
     // Ordinary equality can use an index; BINARY equality additionally defeats case/PAD SPACE collation aliasing.
-    const clauses = [`${tenant} = ?`, `BINARY ${tenant} = BINARY ?`],
-      values: ScopedSqlValue[] = [tenantId, tenantId];
+    const clauses =
+        dialect === 'sqlite'
+          ? [`typeof(${tenant}) = 'text'`, `${tenant} COLLATE BINARY = ?`]
+          : [`${tenant} = ?`, `BINARY ${tenant} = BINARY ?`],
+      values: ScopedSqlValue[] =
+        dialect === 'sqlite' ? [tenantId] : [tenantId, tenantId];
     for (const [column, value] of pairs) {
-      const name = quoteScopedSqlIdentifier(column);
+      const name = quote(column);
       if (value === null) clauses.push(`${name} IS NULL`);
       else {
         clauses.push(
           column === table.tenantColumn
-            ? `BINARY ${name} = BINARY ?`
+            ? dialect === 'sqlite'
+              ? `${name} COLLATE BINARY = ?`
+              : `BINARY ${name} = BINARY ?`
             : `${name} = ?`,
         );
         values.push(value);
@@ -166,7 +182,7 @@ export function createScopedSqlCompiler(
         throw new TypeError('Invalid order column/direction');
       const filter = predicate(where);
       return statement(
-        `SELECT ${table.columns.map(quoteScopedSqlIdentifier).join(', ')} FROM ${target} WHERE ${filter.text} ORDER BY ${quoteScopedSqlIdentifier(order.column)} ${order.direction.toUpperCase()} LIMIT ${limit} OFFSET ${offset}`,
+        `SELECT ${table.columns.map(quote).join(', ')} FROM ${target} WHERE ${filter.text} ORDER BY ${quote(order.column)} ${order.direction.toUpperCase()} LIMIT ${limit} OFFSET ${offset}`,
         filter.values,
       );
     },
@@ -199,7 +215,7 @@ export function createScopedSqlCompiler(
         );
       const filter = predicate(where, true);
       return statement(
-        `UPDATE ${target} SET ${data.map(([column]) => `${quoteScopedSqlIdentifier(column)} = ?`).join(', ')} WHERE ${filter.text}`,
+        `UPDATE ${target} SET ${data.map(([column]) => `${quote(column)} = ?`).join(', ')} WHERE ${filter.text}`,
         [...data.map(([, value]) => value), ...filter.values],
       );
     },

@@ -11,6 +11,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./compiler": {
+      "types": "./dist/crud.d.ts",
+      "import": "./dist/crud.js"
     }
   },
   "scripts": {
