@@ -77,7 +77,7 @@ try {
       pack(dependencyDirectory);
     }
   }
-  for (const name of ['core', 'node', 'fetch', 'postgres'])
+  for (const name of ['core', 'node', 'fetch', 'postgres', 'sqlserver'])
     pack(join(root, 'packages', name), true);
   pack(
     dirname(
@@ -114,6 +114,7 @@ try {
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
     import { createPgAdapter } from '@tenantguard/postgres/pg';
+    import { createSqlServerPool, createSqlServerAdapter } from '@tenantguard/sqlserver';
     const guard = createTenantGuard({ carrier: nodeContext, authorize: () => ({ tenantId: 'Org_A' }) });
     const handler = withTenant(guard, (_request, context) => {
       assert.equal(requireTenant().tenantId, context.tenantId);
@@ -124,6 +125,10 @@ try {
     const adapter = createPgAdapter({ resolvePool: () => pool, tables: [{ schema: 'public', table: 'orders' }] });
     assert.equal(adapter.name, 'pg');
     await pool.end();
+    const sqlPool = createSqlServerPool({ connection: { server: 'localhost', options: { database: 'example', encrypt: true } } });
+    const sqlAdapter = createSqlServerAdapter({ resolvePool: () => sqlPool, tables: [{ schema: 'dbo', table: 'orders' }] });
+    assert.equal(sqlAdapter.name, 'sqlserver');
+    await sqlPool.close();
   `,
   );
   execFileSync(process.execPath, ['consumer.mjs'], {
@@ -138,6 +143,7 @@ try {
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
     import { createPgAdapter, type PgTenantClient } from '@tenantguard/postgres/pg';
+    import { createSqlServerPool, createSqlServerAdapter, type SqlServerTenantClient } from '@tenantguard/sqlserver';
     const guard = createTenantGuard<Request>({ authorize: () => ({ tenantId: 'Org_A' }) });
     withTenant(guard, (_request, context) => new Response(context.tenantId));
     const adapter: DatabaseAdapter<{ query(): string }> = {
@@ -150,6 +156,10 @@ try {
     const direct = createPgAdapter({ resolvePool: () => pool, tables: [{ schema: 'public', table: 'orders' }] });
     const typed: import('@tenantguard/core').DatabaseAdapter<PgTenantClient> = direct;
     void typed;
+    const sqlPool = createSqlServerPool({ connection: { server: 'localhost', options: { database: 'example', encrypt: true } } });
+    const sqlAdapter = createSqlServerAdapter({ resolvePool: () => sqlPool, tables: [{ schema: 'dbo', table: 'orders' }] });
+    const typedSql: import('@tenantguard/core').DatabaseAdapter<SqlServerTenantClient> = sqlAdapter;
+    void typedSql;
   `,
   );
   execFileSync(
@@ -169,7 +179,7 @@ try {
     { cwd: temporary, stdio: 'inherit' },
   );
   console.log(
-    'Packed core/node/fetch/postgres: clean offline JavaScript and TypeScript consumers passed',
+    'Packed core/node/fetch/postgres/sqlserver: clean offline JavaScript and TypeScript consumers passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
