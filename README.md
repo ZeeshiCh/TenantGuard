@@ -2,7 +2,7 @@
 
 Multi-tenancy foundations for JavaScript and TypeScript backends.
 
-Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono, Fetch, Express 5, Fastify 5 and Koa 3 integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. MySQL and MariaDB have restricted CRUD adapters with application-filter isolation. MongoDB has restricted CRUD and aggregation; SQLite has worker-owned scoped CRUD over database files. Both use application-filter isolation. Prisma and Drizzle have restricted scoped adapters verified on PostgreSQL, MySQL and MariaDB. Mongoose has isolated scoped models, guarded aggregation and owned replica-set transactions. A portable bounded registry cache supports TTLs, lookup coalescing, invalidation and terminal draining.
+Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono, Fetch, Express 5, Fastify 5 and Koa 3 integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. MySQL and MariaDB have restricted CRUD adapters with application-filter isolation. MongoDB has restricted CRUD and aggregation; SQLite has worker-owned scoped CRUD over database files. Both use application-filter isolation. Prisma and Drizzle have restricted scoped adapters verified on PostgreSQL, MySQL and MariaDB. Mongoose has isolated scoped models, guarded aggregation and owned replica-set transactions. A portable bounded registry cache supports TTLs, lookup coalescing, invalidation and terminal draining. Managed tenant resources add idle eviction, revision-based secret rotation and bounded shutdown reporting.
 
 See the [implementation plan](docs/implementation-plan.md), [architecture and current support](docs/architecture.md), and [security model](docs/security.md).
 
@@ -182,3 +182,7 @@ Use the shared authorization guard with [Express middleware](packages/express/RE
 ## Tenant registry caching
 
 Wrap any `TenantRegistry` with `createCachedTenantRegistry` from `@tenantguard/registry`. It preserves the verified context in cache keys, freezes route snapshots, coalesces concurrent lookups, bounds storage and native work, and rejects invalidated or expired lookups without falling back to expired route snapshots. The [registry guide](packages/registry/README.md) covers configuration, control-plane invalidation, multi-process delivery and shutdown. The cache runs inside your backend process; authorization still runs on every request.
+
+## Bounded tenant resources
+
+`@tenantguard/resources` owns bounded per-tenant resource generations and wraps database adapters with full-lifecycle leases. It coalesces creation, bounds queued/concurrent work, evicts idle resources, and rotates secrets/resources with compare-and-set route revisions while acquired transactions finish on their original resource. The [resource guide](packages/resources/README.md) covers PostgreSQL wiring, control-plane coordination, native connection limits and shutdown failure handling. Real PostgreSQL password rotation and SQLite file rotation are verified.
