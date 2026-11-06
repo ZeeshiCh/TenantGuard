@@ -1,6 +1,6 @@
 # Security model
 
-The portable core and framework adapters provide authorization/context/routing boundaries. PostgreSQL policies are implemented through TypeORM and direct pg paths. SQL Server native RLS is implemented through a dedicated Tedious adapter; its session-specific boundary is described below. Other database adapters remain planned. See [architecture](architecture.md) for current support.
+The portable core and framework adapters provide authorization/context/routing boundaries. PostgreSQL policies are implemented through TypeORM and direct pg paths. SQL Server native RLS is implemented through a dedicated Tedious adapter; its session-specific boundary is described below. MySQL and MariaDB use application-filter CRUD adapters as described below; MongoDB and SQLite remain planned. See [architecture](architecture.md) for current support.
 
 Core tenant IDs are case-sensitive. The PostgreSQL UUID adapter requires canonical lowercase UUIDs to avoid treating different string identities as one database UUID. Trusted context constructors do not authenticate or authorize; use a membership-checking authorizer at request boundaries.
 
@@ -33,3 +33,9 @@ Native policies filter reads/updates/deletes and block foreign inserts or owners
 The T-SQL data-batch prefix check is not a parser or SQL injection defense. Do not embed transaction/session management in callback batches or expose arbitrary SQL to users. Such contract violations can have already-committed effects; outcome reporting cannot undo them. Policy functions, signed/impersonating modules, broader role grants and undeclared tables require independent review. The SQL Server adapter does not imply Azure SQL or arbitrary topology certification, and the audit CLI is still PostgreSQL-only.
 
 See the [SQL Server guide](../packages/sqlserver/README.md) for pool ownership, grants, commit outcomes and the local emulation/native CI distinction.
+
+## MySQL and MariaDB application-filter boundary
+
+These engines use a restricted generated CRUD surface, not native tenant row policies. Every query through that surface includes independent, byte-exact tenant predicates; inserts inject the tenant and updates cannot change it. Unknown resources/columns, SQL fragments/operators, invalid encodings and unsupported operations are rejected. Raw native access using the same credentials can read foreign rows and is outside this guarantee. Strict router mode refuses these adapters.
+
+Pinned InnoDB transactions, poisoned swallowed failures, verified resets, explicit advisory-lock release and destruction of uncertain sessions protect connection lifecycle. The server sentinel is diagnostic, not an authorization policy. Least privilege, tenant-aware keys/FKs and review of triggers/stored routines/cascades remain necessary; global constraint errors can reveal existence information. Table/column metadata checks are not a full grant or schema-security audit. See the [shared guide](../packages/scoped-sql/README.md) for the exact supported CRUD grammar and operational limits.

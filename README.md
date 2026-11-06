@@ -2,7 +2,7 @@
 
 Multi-tenancy foundations for JavaScript and TypeScript backends.
 
-Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono and Fetch integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. Other databases have contracts, not implemented adapters.
+Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono and Fetch integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. MySQL and MariaDB have restricted CRUD adapters with application-filter isolation. MongoDB and SQLite adapters remain planned.
 
 See the [implementation plan](docs/implementation-plan.md), [architecture and current support](docs/architecture.md), and [security model](docs/security.md).
 
@@ -16,7 +16,7 @@ pnpm check
 pnpm test:integration
 ```
 
-`pnpm check` runs formatting, strict type checks, unit tests, browser-target portability builds, package builds and clean packed-package JavaScript/TypeScript consumer tests, including direct pg and SQL Server entry points. Database tests sequentially launch disposable PostgreSQL 17 and SQL Server 2022 Developer containers through Testcontainers. SQL Server uses an x86-64 image and needs at least 3 GiB of container memory. CI also configures Node 22 and 24 checks. `pnpm format` formats sources and documentation.
+`pnpm check` runs formatting, strict type checks, unit tests, browser-target portability builds, package builds and clean packed-package JavaScript/TypeScript consumer tests, including direct pg, SQL Server, MySQL and MariaDB entry points. Database tests sequentially launch disposable PostgreSQL 17, SQL Server 2022 Developer, MySQL 8.4 and MariaDB 11.8 containers through Testcontainers. SQL Server uses an x86-64 image and needs at least 3 GiB of container memory. CI also configures Node 22 and 24 checks. `pnpm format` formats sources and documentation.
 
 ## Portable authorization
 
@@ -65,6 +65,14 @@ The client exposes parameterized, single data statements rather than the raw Poo
 Native FILTER and AFTER INSERT / AFTER UPDATE BLOCK predicates enforce the tenant boundary. The adapter pins a physical connection through commit/rollback, explicitly clears SESSION_CONTEXT, resets and verifies the session, and destroys unsafe connections. It serializes TDS requests and bounds acquisition, requests, work, locks and cleanup.
 
 See the [SQL Server guide](packages/sqlserver/README.md) for migrations, least-privilege grants, typed parameters, error outcomes and supported topology. Both database families run the same reusable conformance cases against real engines. Local SQL Server tests run under x86-64 emulation; native Linux CI is configured separately. The audit CLI still supports PostgreSQL only.
+
+## MySQL and MariaDB
+
+`@tenantguard/mysql` and `@tenantguard/mariadb` provide native-driver pools and adapters with an allowlisted `client.table('orders').find/insert/update/delete` facade. They inject tenant identity on writes, prohibit ID/tenant reassignment and scope reads/updates/deletes with byte-exact tenant predicates. Values are bound; raw SQL, joins and operator expressions are not exposed.
+
+These adapters declare `application-filter` mode. Direct native SQL can bypass them; strict database-enforcement mode rejects them. This is a different guarantee from native RLS. Both use pinned InnoDB transactions, full driver resets, advisory-lock cleanup, bounded work and destruction of unsafe connections. Case-insensitive database defaults do not merge tenant IDs.
+
+See the [MySQL guide](packages/mysql/README.md), [MariaDB guide](packages/mariadb/README.md) and [shared CRUD contract](packages/scoped-sql/README.md). The same seven conformance cases run independently against each real engine. They integrate with Node, NestJS, Hono and other Node backends through the same explicit-context router; they do not add MySQL/MariaDB support to the PostgreSQL-only TypeORM adapter.
 
 ## Node and TypeORM
 
@@ -131,6 +139,6 @@ The CLI inventories user tables and exits 1 for missing RLS/FORCE/policies or op
 
 ## Layout and release status
 
-`packages/`: core, node, fetch, hono, postgres, sqlserver, typeorm, nestjs, testing and cli. `examples/`: NestJS + TypeORM orders endpoint. `apps/docs` and `apps/playground` remain placeholders.
+`packages/`: core, node, fetch, hono, postgres, sqlserver, mysql, mariadb, scoped-sql, typeorm, nestjs, testing and cli. `examples/`: NestJS + TypeORM orders endpoint. `apps/docs` and `apps/playground` remain placeholders.
 
 Packages are ESM with TypeScript declarations. No npm packages or hosted services have been published, and package-name availability has not been checked. The [complete roadmap](docs/implementation-plan.md) covers remaining databases, ORMs, frameworks, runtime support, tooling, security review and deployment.
