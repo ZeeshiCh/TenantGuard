@@ -10,7 +10,11 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "test:integration": "node --import tsx --test tests/*.integration.ts",
-    "check": "pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm format:check && pnpm typecheck && pnpm test && pnpm check:portable && pnpm build && pnpm test:packages",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:portable": "node scripts/check-portable.mjs",
+    "test:packages": "node scripts/smoke-packages.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
