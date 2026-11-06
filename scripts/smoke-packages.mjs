@@ -77,7 +77,15 @@ try {
       pack(dependencyDirectory);
     }
   }
-  for (const name of ['core', 'node', 'fetch', 'postgres', 'sqlserver'])
+  for (const name of [
+    'core',
+    'node',
+    'fetch',
+    'postgres',
+    'sqlserver',
+    'mysql',
+    'mariadb',
+  ])
     pack(join(root, 'packages', name), true);
   pack(
     dirname(
@@ -109,12 +117,14 @@ try {
     join(temporary, 'consumer.mjs'),
     `
     import assert from 'node:assert/strict';
-    import { createTenantGuard } from '@tenantguard/core';
+    import { createTenantGuard, createTenantRouter } from '@tenantguard/core';
     import { nodeContext, requireTenant } from '@tenantguard/node';
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
     import { createPgAdapter } from '@tenantguard/postgres/pg';
     import { createSqlServerPool, createSqlServerAdapter } from '@tenantguard/sqlserver';
+    import { createMysqlPool, createMysqlAdapter } from '@tenantguard/mysql';
+    import { createMariadbPool, createMariadbAdapter } from '@tenantguard/mariadb';
     const guard = createTenantGuard({ carrier: nodeContext, authorize: () => ({ tenantId: 'Org_A' }) });
     const handler = withTenant(guard, (_request, context) => {
       assert.equal(requireTenant().tenantId, context.tenantId);
@@ -129,6 +139,14 @@ try {
     const sqlAdapter = createSqlServerAdapter({ resolvePool: () => sqlPool, tables: [{ schema: 'dbo', table: 'orders' }] });
     assert.equal(sqlAdapter.name, 'sqlserver');
     await sqlPool.close();
+    const tables = { orders: { table: 'orders', tenantColumn: 'tenant_id', idColumn: 'id', columns: ['id', 'tenant_id', 'value'] } };
+    for (const [makePool, makeAdapter] of [[createMysqlPool, createMysqlAdapter], [createMariadbPool, createMariadbAdapter]]) {
+      const scopedPool = makePool({ connection: { host: 'localhost', database: 'example' } });
+      const scopedAdapter = makeAdapter({ resolvePool: () => scopedPool, tables });
+      assert.deepEqual(scopedAdapter.capabilities.isolationModes, ['application-filter']);
+      assert.throws(() => createTenantRouter({ strict: true, sources: { orders: { adapter: scopedAdapter, mode: 'application-filter' } }, registry: { resolve: async () => undefined } }));
+      await scopedPool.close();
+    }
   `,
   );
   execFileSync(process.execPath, ['consumer.mjs'], {
@@ -144,6 +162,8 @@ try {
     import pg from 'pg';
     import { createPgAdapter, type PgTenantClient } from '@tenantguard/postgres/pg';
     import { createSqlServerPool, createSqlServerAdapter, type SqlServerTenantClient } from '@tenantguard/sqlserver';
+    import { createMysqlPool, createMysqlAdapter, type ScopedSqlClient } from '@tenantguard/mysql';
+    import { createMariadbPool, createMariadbAdapter } from '@tenantguard/mariadb';
     const guard = createTenantGuard<Request>({ authorize: () => ({ tenantId: 'Org_A' }) });
     withTenant(guard, (_request, context) => new Response(context.tenantId));
     const adapter: DatabaseAdapter<{ query(): string }> = {
@@ -160,6 +180,12 @@ try {
     const sqlAdapter = createSqlServerAdapter({ resolvePool: () => sqlPool, tables: [{ schema: 'dbo', table: 'orders' }] });
     const typedSql: import('@tenantguard/core').DatabaseAdapter<SqlServerTenantClient> = sqlAdapter;
     void typedSql;
+    const tables = { orders: { table: 'orders', tenantColumn: 'tenant_id', idColumn: 'id', columns: ['id', 'tenant_id', 'value'] } };
+    const mysqlPool = createMysqlPool({ connection: { host: 'localhost', database: 'example' } });
+    const mariaPool = createMariadbPool({ connection: { host: 'localhost', database: 'example' } });
+    const mysqlAdapter: DatabaseAdapter<ScopedSqlClient> = createMysqlAdapter({ resolvePool: () => mysqlPool, tables });
+    const mariaAdapter: DatabaseAdapter<ScopedSqlClient> = createMariadbAdapter({ resolvePool: () => mariaPool, tables });
+    void mysqlAdapter; void mariaAdapter;
   `,
   );
   execFileSync(
@@ -179,7 +205,7 @@ try {
     { cwd: temporary, stdio: 'inherit' },
   );
   console.log(
-    'Packed core/node/fetch/postgres/sqlserver: clean offline JavaScript and TypeScript consumers passed',
+    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb: clean offline JavaScript and TypeScript consumers passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
