@@ -1,0 +1,33 @@
+{
+  "name": "tenantguard",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:integration": "node --import tsx --test tests/*.integration.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "tsx": "^4.21.0",
+    "turbo": "^2.7.0",
+    "@types/node": "^22.19.0",
+    "@types/pg": "^8.16.0",
+    "pg": "^8.16.0",
+    "@testcontainers/postgresql": "^11.10.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "typeorm": "^0.3.28",
+    "hono": "^4.0.0",
+    "prettier": "^3.0.0",
+    "esbuild": "^0.28.2"
+  }
+}

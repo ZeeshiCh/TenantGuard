@@ -1,0 +1,21 @@
+{
+  "name": "tenantguard-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@tenantguard/core": "workspace:*",
+    "@tenantguard/nestjs": "workspace:*",
+    "@tenantguard/typeorm": "workspace:*",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "typeorm": "^0.3.28",
+    "pg": "^8.16.0",
+    "@tenantguard/node": "workspace:*"
+  }
+}

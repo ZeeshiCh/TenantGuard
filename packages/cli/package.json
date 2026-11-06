@@ -1,0 +1,27 @@
+{
+  "name": "@tenantguard/cli",
+  "version": "0.0.0",
+  "description": "TenantGuard cli utilities",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@tenantguard/postgres": "workspace:*",
+    "pg": "^8.16.0"
+  },
+  "peerDependencies": {},
+  "bin": {
+    "tenantguard": "./dist/index.js"
+  }
+}

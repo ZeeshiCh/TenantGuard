@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@tenantguard/core": ["./packages/core/src/index.ts"],
+      "@tenantguard/postgres": ["./packages/postgres/src/index.ts"],
+      "@tenantguard/typeorm": ["./packages/typeorm/src/index.ts"],
+      "@tenantguard/nestjs": ["./packages/nestjs/src/index.ts"],
+      "@tenantguard/testing": ["./packages/testing/src/index.ts"],
+      "@tenantguard/node": ["./packages/node/src/index.ts"],
+      "@tenantguard/fetch": ["./packages/fetch/src/index.ts"],
+      "@tenantguard/hono": ["./packages/hono/src/index.ts"]
+    },
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["packages/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"]
+}
