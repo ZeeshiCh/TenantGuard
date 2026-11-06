@@ -7,14 +7,15 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm generate:prisma && tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:integration": "node --import tsx --test --test-concurrency=1 tests/*.integration.ts",
+    "test:integration": "pnpm generate:prisma && node --import tsx --test --test-concurrency=1 tests/*.integration.ts",
     "check": "pnpm format:check && pnpm typecheck && pnpm test && pnpm check:portable && pnpm build && pnpm test:packages",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:portable": "node scripts/check-portable.mjs",
-    "test:packages": "node scripts/smoke-packages.mjs"
+    "test:packages": "node scripts/smoke-packages.mjs",
+    "generate:prisma": "node scripts/generate-prisma.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
@@ -38,6 +39,11 @@
     "testcontainers": "^11.14.0",
     "mysql2": "^3.24.6",
     "mariadb": "^3.5.4",
-    "mongodb": "^6.20.0"
+    "mongodb": "^6.20.0",
+    "prisma": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/adapter-mariadb": "7.10.1",
+    "@prisma/generator-helper": "7.10.1"
   }
 }

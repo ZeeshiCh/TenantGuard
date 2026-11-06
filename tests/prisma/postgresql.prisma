@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client"
+  output = "./generated/postgresql"
+  moduleFormat = "esm"
+}
+datasource db {
+  provider = "postgresql"
+}
+model Order {
+  id String @id
+  tenantId String @map("tenant_id")
+  value String
+  related Related[]
+  @@map("orders")
+}
+model Related {
+  id String @id
+  tenantId String @map("tenant_id")
+  orderId String @map("order_id")
+  order Order @relation(fields:[orderId],references:[id])
+  @@map("related")
+}
+
+generator tenantguard {
+  provider = env("TENANTGUARD_PRISMA_GENERATOR")
+  output = "./generated/postgresql/tenantguard"
+}

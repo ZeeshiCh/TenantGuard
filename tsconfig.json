@@ -25,10 +25,12 @@
       "@tenantguard/mariadb": ["./packages/mariadb/src/index.ts"],
       "@tenantguard/mongodb": ["./packages/mongodb/src/index.ts"],
       "@tenantguard/sqlite": ["./packages/sqlite/src/index.ts"],
-      "@tenantguard/scoped-sql/compiler": ["./packages/scoped-sql/src/crud.ts"]
+      "@tenantguard/scoped-sql/compiler": ["./packages/scoped-sql/src/crud.ts"],
+      "@tenantguard/prisma": ["./packages/prisma/src/index.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["packages/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"]
+  "include": ["packages/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"],
+  "exclude": ["tests/prisma/generated"]
 }

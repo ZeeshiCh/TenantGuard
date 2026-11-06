@@ -6,3 +6,5 @@ allowBuilds:
   cpu-features: false
   protobufjs: false
   ssh2: false
+  '@prisma/engines': true
+  prisma: true

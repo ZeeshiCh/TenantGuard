@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client"
+  output = "./generated/mysql"
+  moduleFormat = "esm"
+}
+datasource db {
+  provider = "mysql"
+}
+model Order {
+  id String @id @db.VarChar(64)
+  tenantId String @map("tenant_id") @db.VarChar(256)
+  value String @db.VarChar(256)
+  related Related[]
+  @@map("orders")
+}
+model Related {
+  id String @id @db.VarChar(64)
+  tenantId String @map("tenant_id") @db.VarChar(256)
+  orderId String @map("order_id") @db.VarChar(64)
+  order Order @relation(fields:[orderId],references:[id])
+  @@map("related")
+}
+
+generator tenantguard {
+  provider = env("TENANTGUARD_PRISMA_GENERATOR")
+  output = "./generated/mysql/tenantguard"
+}
