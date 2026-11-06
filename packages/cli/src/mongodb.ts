@@ -38,6 +38,15 @@ export async function inspectMongo(
         { timeoutMS: source.timeoutMs },
       );
     const auth = status.authInfo;
+    if (
+      !Array.isArray(auth?.authenticatedUsers) ||
+      auth.authenticatedUsers.length === 0
+    )
+      out.add(
+        'MONGO.AUTHENTICATION',
+        'error',
+        'Diagnostic connection is not authenticated; review server access controls.',
+      );
     if (!auth || !Array.isArray(auth.authenticatedUserPrivileges))
       out.unknown(
         'MONGO.PRIVILEGES_UNAVAILABLE',

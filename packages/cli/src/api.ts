@@ -40,7 +40,25 @@ async function sourceInspection(
             ['postgres', 'mysql', 'mariadb', 'sqlite'].includes(source.engine)
           ? 'db-deploy-doctor'
           : undefined;
-    if (!tool) return native;
+    if (!tool)
+      return {
+        ...native,
+        findings: [
+          ...native.findings,
+          {
+            source: source.name,
+            code:
+              command === 'audit'
+                ? 'COVERAGE.RELATIONSHIPS_UNVERIFIED'
+                : 'COVERAGE.DEPLOYMENT_UNVERIFIED',
+            severity: 'info',
+            message:
+              command === 'audit'
+                ? 'Published tenant-audit 0.2.0 does not implement relationship analysis for this engine.'
+                : 'Published db-deploy-doctor 0.2.0 does not implement readiness checks for this engine.',
+          },
+        ],
+      };
     const upstream = await inspectWithPublishedTool(
       source,
       tool,

@@ -16,7 +16,8 @@ try {
   direct = false;
 }
 if (direct) {
-  let interrupted = false;
+  let interrupted = false,
+    outputFailed = false;
   const stop = (code: number) => {
     interrupted = true;
     process.exitCode = code;
@@ -25,6 +26,7 @@ if (direct) {
   process.on('SIGINT', () => stop(130));
   process.on('SIGTERM', () => stop(143));
   process.stdout.on('error', () => {
+    outputFailed = true;
     process.exitCode = 3;
     stopDiagnosticChildren();
   });
@@ -34,7 +36,7 @@ if (direct) {
     },
   }).then(
     (code) => {
-      if (!interrupted) process.exitCode = code;
+      if (!interrupted && !outputFailed) process.exitCode = code;
     },
     () => {
       if (!interrupted) {

@@ -285,3 +285,59 @@ test('policy recognizers refuse constant, extra-OR and literal context-key chang
     ),
   );
 });
+
+test('SQL URLs cannot fall back to ambient credentials and Mongo options stay explicit', () => {
+  const sql = parseDiagnosticConfig(config());
+  for (const value of [
+    'postgres://host/database',
+    'postgres://user@host/database',
+    'postgres://:secret@host/database',
+  ])
+    assert.throws(
+      () => resolveDiagnosticSources(sql, { TG_URL: value }),
+      ConfigError,
+    );
+  const mongo = parseDiagnosticConfig({
+    version: 1,
+    sources: [{ ...source, engine: 'mongodb', mode: 'application-filter' }],
+  });
+  for (const value of [
+    'mongodb://host/database?directConnection=maybe',
+    'mongodb+srv://host/database?directConnection=true',
+    'mongodb://host/database?authSource=',
+  ])
+    assert.throws(
+      () => resolveDiagnosticSources(mongo, { TG_URL: value }),
+      ConfigError,
+    );
+});
+test('MySQL URL-selected scope cannot conflict with configured databases or duplicate aliases', () => {
+  const value = {
+    ...source,
+    engine: 'mysql',
+    mode: 'application-filter',
+    targets: [
+      { table: 'orders', schema: 'elsewhere', tenantColumn: 'tenant_id' },
+    ],
+  };
+  assert.throws(
+    () =>
+      resolveDiagnosticSources(
+        parseDiagnosticConfig({ version: 1, sources: [value] }),
+        { TG_URL: 'mysql://user:pass@host/database' },
+      ),
+    ConfigError,
+  );
+  const duplicate = {
+    ...value,
+    targets: [source.targets[0], { ...source.targets[0], schema: 'database' }],
+  };
+  assert.throws(
+    () =>
+      resolveDiagnosticSources(
+        parseDiagnosticConfig({ version: 1, sources: [duplicate] }),
+        { TG_URL: 'mysql://user:pass@host/database' },
+      ),
+    ConfigError,
+  );
+});

@@ -398,6 +398,25 @@ export function resolveDiagnosticSources(
           seen.add(key);
         }
       }
+      if (source.engine !== 'mongodb' && (!user! || !password!))
+        fail(field + '.url', 'CONFIG.CREDENTIALS');
+      if (source.engine === 'mongodb') {
+        for (const [name, value] of parsed!.searchParams) {
+          if (
+            !value ||
+            value.length > 256 ||
+            /[\u0000-\u001f\u007f]/u.test(value) ||
+            (name === 'directConnection' && !['true', 'false'].includes(value))
+          )
+            fail(field + '.url', 'CONFIG.URL_OPTIONS');
+        }
+        if (
+          parsed!.protocol === 'mongodb+srv:' &&
+          (parsed!.port ||
+            parsed!.searchParams.get('directConnection') === 'true')
+        )
+          fail(field + '.url', 'CONFIG.URL_OPTIONS');
+      }
       const port = parsed!.port
         ? integer(Number(parsed!.port), 1, 65535, field + '.port')
         : undefined;
