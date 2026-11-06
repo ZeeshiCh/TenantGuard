@@ -86,6 +86,7 @@ try {
     'mysql',
     'mariadb',
     'mongodb',
+    'sqlite',
   ])
     pack(join(root, 'packages', name), true);
   pack(
@@ -127,6 +128,7 @@ try {
     import { createMysqlPool, createMysqlAdapter } from '@tenantguard/mysql';
     import { createMariadbPool, createMariadbAdapter } from '@tenantguard/mariadb';
     import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
+    import { createSqliteResource, createSqliteAdapter } from '@tenantguard/sqlite';
     const mongoResource = createMongoResource({ uri: 'mongodb://localhost:27017', database: 'example' });
     const mongoAdapter = createMongoAdapter({ resolveResource: () => mongoResource, collections: { orders: { collection: 'orders', tenantField: 'tenantId', idField: 'id', fields: ['id', 'tenantId', 'value'] } } });
     await mongoResource.close();
@@ -138,6 +140,20 @@ try {
     assert.equal(await (await handler(new Request('http://test'))).text(), 'Org_A');
     const pool = new pg.Pool({ max: 1, connectionTimeoutMillis: 100 });
     const adapter = createPgAdapter({ resolvePool: () => pool, tables: [{ schema: 'public', table: 'orders' }] });
+    const { DatabaseSync } = await import('node:sqlite');
+    const { resolve } = await import('node:path');
+    const filename = resolve('consumer.sqlite');
+    const setup = new DatabaseSync(filename);
+    setup.exec("CREATE TABLE orders(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL,value TEXT);INSERT INTO orders VALUES('own','Org_A','ok'),('foreign','org_a','hidden')");
+    setup.close();
+    const sqliteResource = createSqliteResource({ filename });
+    const sqliteAdapter = createSqliteAdapter({ resolveResource: () => sqliteResource, tables: { orders: { table: 'orders', tenantColumn: 'tenant_id', idColumn: 'id', columns: ['id','tenant_id','value'] } } });
+    const sqliteRoute = { tenantId: 'Org_A', source: 'orders', adapter: 'sqlite', resource: 'file', revision: '1', status: 'active', mode: 'application-filter' };
+    try {
+      const rows = await sqliteAdapter.run({tenantId:'Org_A'}, sqliteRoute, client => client.table('orders').find());
+      assert.equal(rows.length, 1); assert.equal(rows[0].id, 'own');
+      assert.throws(() => createTenantRouter({ strict: true, sources: {orders: {adapter: sqliteAdapter, mode: 'application-filter'}}, registry: {resolve: async()=>undefined} }));
+    } finally { await sqliteResource.close(); }
     assert.equal(adapter.name, 'pg');
     assert.equal(mongoAdapter.name, 'mongodb');
     assert.throws(() => createTenantRouter({ strict: true, sources: { orders: { adapter: mongoAdapter, mode: 'application-filter' } }, registry: { resolve: async () => undefined } }));
@@ -172,6 +188,7 @@ try {
     import { createMysqlPool, createMysqlAdapter, type ScopedSqlClient } from '@tenantguard/mysql';
     import { createMariadbPool, createMariadbAdapter } from '@tenantguard/mariadb';
     import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
+    import { createSqliteResource, createSqliteAdapter } from '@tenantguard/sqlite';
     const mongoResource = createMongoResource({ uri: 'mongodb://localhost:27017', database: 'example' });
     const mongoAdapter = createMongoAdapter({ resolveResource: () => mongoResource, collections: { orders: { collection: 'orders', tenantField: 'tenantId', idField: 'id', fields: ['id', 'tenantId', 'value'] } } });
     await mongoResource.close();
@@ -199,6 +216,9 @@ try {
     void mysqlAdapter; void mariaAdapter;
     const typedMongo: DatabaseAdapter<import('@tenantguard/mongodb').MongoScopedClient> = mongoAdapter;
     void typedMongo;
+    const sqliteResource = createSqliteResource({filename: '/existing/server-owned/orders.sqlite'});
+    const typedSqlite: DatabaseAdapter<import('@tenantguard/sqlite').SqliteScopedClient> = createSqliteAdapter({resolveResource: () => sqliteResource, tables});
+    void typedSqlite;
   `,
   );
   execFileSync(
@@ -218,7 +238,7 @@ try {
     { cwd: temporary, stdio: 'inherit' },
   );
   console.log(
-    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb: clean offline JavaScript and TypeScript consumers passed',
+    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite: clean offline JavaScript and TypeScript consumers passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
