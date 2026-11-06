@@ -11,7 +11,7 @@ export const mongoCollections = {
 };
 export const mongoTenantA = { tenantId: 'Org_A' },
   mongoTenantB = { tenantId: 'org_a' };
-export async function mongodbFixture() {
+export async function mongodbFixture(options: { testCommands?: boolean } = {}) {
   const password = randomUUID(),
     appPassword = randomUUID();
   const container = await new GenericContainer(
@@ -26,7 +26,8 @@ export async function mongodbFixture() {
     ])
     .withEntrypoint(['/bin/bash', '-c'])
     .withCommand([
-      'cp /tmp/rs-key /data/rs-key && chown mongodb:mongodb /data/rs-key && chmod 400 /data/rs-key && exec /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /data/rs-key',
+      'cp /tmp/rs-key /data/rs-key && chown mongodb:mongodb /data/rs-key && chmod 400 /data/rs-key && exec /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /data/rs-key' +
+        (options.testCommands ? ' --setParameter enableTestCommands=1' : ''),
     ])
     .withExposedPorts(27017)
     .withWaitStrategy(Wait.forListeningPorts())
