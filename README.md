@@ -2,7 +2,7 @@
 
 Multi-tenancy foundations for JavaScript and TypeScript backends.
 
-Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono, Fetch, Express 5, Fastify 5 and Koa 3 integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. MySQL and MariaDB have restricted CRUD adapters with application-filter isolation. MongoDB has restricted CRUD and aggregation; SQLite has worker-owned scoped CRUD over database files. Both use application-filter isolation. Prisma and Drizzle have restricted scoped adapters verified on PostgreSQL, MySQL and MariaDB. Mongoose has isolated scoped models, guarded aggregation and owned replica-set transactions.
+Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono, Fetch, Express 5, Fastify 5 and Koa 3 integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. MySQL and MariaDB have restricted CRUD adapters with application-filter isolation. MongoDB has restricted CRUD and aggregation; SQLite has worker-owned scoped CRUD over database files. Both use application-filter isolation. Prisma and Drizzle have restricted scoped adapters verified on PostgreSQL, MySQL and MariaDB. Mongoose has isolated scoped models, guarded aggregation and owned replica-set transactions. A portable bounded registry cache supports TTLs, lookup coalescing, invalidation and terminal draining.
 
 See the [implementation plan](docs/implementation-plan.md), [architecture and current support](docs/architecture.md), and [security model](docs/security.md).
 
@@ -178,3 +178,7 @@ Packages are ESM with TypeScript declarations. No npm packages or hosted service
 Use the shared authorization guard with [Express middleware](packages/express/README.md), a [Fastify preHandler hook](packages/fastify/README.md), or [Koa middleware](packages/koa/README.md). After authentication and membership checks, protected handlers access the frozen context with `requireTenant()` from `@tenantguard/node` and pass it to any configured database adapter. These packages run inside your Node backend; there is no separate TenantGuard service.
 
 `tests/express.integration.ts`, `tests/fastify.integration.ts` and `tests/koa.integration.ts` exercise actual localhost HTTP servers, including concurrent tenant isolation, errors and disconnects.
+
+## Tenant registry caching
+
+Wrap any `TenantRegistry` with `createCachedTenantRegistry` from `@tenantguard/registry`. It preserves the verified context in cache keys, freezes route snapshots, coalesces concurrent lookups, bounds storage and native work, and rejects invalidated or expired lookups without falling back to expired route snapshots. The [registry guide](packages/registry/README.md) covers configuration, control-plane invalidation, multi-process delivery and shutdown. The cache runs inside your backend process; authorization still runs on every request.
