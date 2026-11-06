@@ -1,6 +1,6 @@
 # Security model
 
-The portable core and framework adapters provide authorization/context/routing boundaries. The database guarantees below describe PostgreSQL policies used by the implemented TypeORM and direct pg paths. Other database adapters remain planned. See [architecture](architecture.md) for current support.
+The portable core and framework adapters provide authorization/context/routing boundaries. PostgreSQL policies are implemented through TypeORM and direct pg paths. SQL Server native RLS is implemented through a dedicated Tedious adapter; its session-specific boundary is described below. Other database adapters remain planned. See [architecture](architecture.md) for current support.
 
 Core tenant IDs are case-sensitive. The PostgreSQL UUID adapter requires canonical lowercase UUIDs to avoid treating different string identities as one database UUID. Trusted context constructors do not authenticate or authorize; use a membership-checking authorizer at request boundaries.
 
@@ -25,3 +25,11 @@ The direct adapter requires dedicated pools and performs additional role, declar
 After a COMMIT attempt, an error may mean writes already committed or that their outcome is unknown. Read commitOutcome on PgTimeoutError/PgCleanupError/PgCommitError, preserve idempotency keys and reconcile uncertain operations instead of blindly retrying. Ordinary callback errors are preserved when rollback succeeds. See the [direct adapter guide](../packages/postgres/README.md) for pool ownership and supported statements.
 
 TypeORM retains its existing lifecycle implementation and does not automatically gain the direct adapter's cleanup/timeout protections. No independent security review or PostgreSQL partition/proxy certification is claimed.
+
+## SQL Server boundary
+
+Native policies filter reads/updates/deletes and block foreign inserts or ownership changes. SESSION_CONTEXT is session-scoped and remains after rollback, so the adapter clears it explicitly, verifies state, resets the physical connection and verifies again before pooling. Read-only keys, uncertain cleanup, timeout and socket failures force destruction. Runtime logins must not be able to alter policies/predicate functions, manage security or impersonate privileged principals. Required policy metadata must be visible; unknown permission checks fail closed.
+
+The T-SQL data-batch prefix check is not a parser or SQL injection defense. Do not embed transaction/session management in callback batches or expose arbitrary SQL to users. Such contract violations can have already-committed effects; outcome reporting cannot undo them. Policy functions, signed/impersonating modules, broader role grants and undeclared tables require independent review. The SQL Server adapter does not imply Azure SQL or arbitrary topology certification, and the audit CLI is still PostgreSQL-only.
+
+See the [SQL Server guide](../packages/sqlserver/README.md) for pool ownership, grants, commit outcomes and the local emulation/native CI distinction.

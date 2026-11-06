@@ -41,3 +41,13 @@ Implemented:
 Validation: 67 unit tests and 31 real PostgreSQL integration tests (including parent tests), with both adapters running the same seven conformance cases and 13 direct-driver lifecycle subtests. Package builds, formatting/type checks, portability bundles and clean packed-package consumers pass locally. GitHub CI has not been run remotely.
 
 Remaining work includes policy-expression analysis, PostgreSQL partitions/pooling proxies, TypeORM lifecycle parity, pool/registry management beyond the driver-owned dedicated pool, other databases and independent review. This milestone certifies neither arbitrary SQL nor every PostgreSQL deployment topology. Nothing has been published or deployed.
+
+## SQL Server native RLS milestone — November 6, 2026
+
+Implemented @tenantguard/sqlserver with schema-bound filter/block policy migrations, UUID validation, a dedicated physical Tedious pool and an explicit-context adapter for the portable router. The connection remains pinned through commit/rollback, explicit SESSION_CONTEXT clearing, verification, driver reset and final verification. Unsafe, read-only-poisoned, timed-out or broken sessions are destroyed. The adapter serializes requests, validates effective privileges and declared policy bindings, and reports uncertain/committed outcomes when required.
+
+SQL Server executes the exact same seven adapter conformance cases as both PostgreSQL adapters. Additional lifecycle cases cover reuse/clearing, contamination, swallowed errors, read-only keys, operation/request/lock deadlines, serialized requests, effective impersonation grants, inherited control, disabled policies and killed sessions. Unit tests cover lifecycle fault injection. Clean JavaScript/TypeScript consumer fixtures install actual packed artifacts with their local driver dependency closure, including SQL Server.
+
+Verified locally: 95 unit tests and 52 real-database integration tests (including parent tests), with no skips. All ten package builds, strict type/format checks, portable bundles and clean packed-package consumers pass. Integration files run sequentially to bound database memory. The SQL Server 2022 Developer image is pinned by digest and uses synthetic ephemeral data.
+
+Local SQL Server execution used x86-64 emulation on ARM. This is real-engine test evidence, not a claim that Microsoft supports emulation for production. Native x86-64 Linux CI is configured but not run on a remote in this session. Azure SQL, Windows/AAD authentication, MARS and other topologies remain uncertified. Policy-expression auditing, SQL Server CLI auditing and independent security review remain future work. Nothing has been published or deployed.

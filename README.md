@@ -2,7 +2,7 @@
 
 Multi-tenancy foundations for JavaScript and TypeScript backends.
 
-Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono and Fetch integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; other databases have contracts, not implemented adapters.
+Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono and Fetch integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. Other databases have contracts, not implemented adapters.
 
 See the [implementation plan](docs/implementation-plan.md), [architecture and current support](docs/architecture.md), and [security model](docs/security.md).
 
@@ -16,7 +16,7 @@ pnpm check
 pnpm test:integration
 ```
 
-`pnpm check` runs formatting, strict type checks, unit tests, browser-target portability builds, package builds and clean packed-package JavaScript/TypeScript consumer tests, including the direct pg entry point. Database tests launch disposable PostgreSQL 17 through Testcontainers. CI also configures Node 22 and 24 checks. `pnpm format` formats sources and documentation.
+`pnpm check` runs formatting, strict type checks, unit tests, browser-target portability builds, package builds and clean packed-package JavaScript/TypeScript consumer tests, including direct pg and SQL Server entry points. Database tests sequentially launch disposable PostgreSQL 17 and SQL Server 2022 Developer containers through Testcontainers. SQL Server uses an x86-64 image and needs at least 3 GiB of container memory. CI also configures Node 22 and 24 checks. `pnpm format` formats sources and documentation.
 
 ## Portable authorization
 
@@ -57,6 +57,14 @@ const adapter = createPgAdapter({
 The client exposes parameterized, single data statements rather than the raw PoolClient. Commit failures and cleanup failures carry outcome information so callers can avoid unsafe automatic retries. See the [pg adapter guide](packages/postgres/README.md) for imports, configuration, pool ownership, restrictions and error semantics. These safeguards apply to the direct adapter; they do not replace TypeORM's connection handling.
 
 `adapterConformanceCases` from `@tenantguard/testing` supplies runner-independent isolation/CRUD/rollback cases. Both PostgreSQL adapters run it against a real database; see the [conformance guide](packages/testing/README.md).
+
+## SQL Server
+
+`@tenantguard/sqlserver` exports `sqlServerPolicyBatches`, `createSqlServerPool` and `createSqlServerAdapter`. The direct adapter uses the same portable router as PostgreSQL, with `adapter: 'sqlserver'` and `mode: 'database-policy'` in server-controlled routes.
+
+Native FILTER and AFTER INSERT / AFTER UPDATE BLOCK predicates enforce the tenant boundary. The adapter pins a physical connection through commit/rollback, explicitly clears SESSION_CONTEXT, resets and verifies the session, and destroys unsafe connections. It serializes TDS requests and bounds acquisition, requests, work, locks and cleanup.
+
+See the [SQL Server guide](packages/sqlserver/README.md) for migrations, least-privilege grants, typed parameters, error outcomes and supported topology. Both database families run the same reusable conformance cases against real engines. Local SQL Server tests run under x86-64 emulation; native Linux CI is configured separately. The audit CLI still supports PostgreSQL only.
 
 ## Node and TypeORM
 
@@ -123,6 +131,6 @@ The CLI inventories user tables and exits 1 for missing RLS/FORCE/policies or op
 
 ## Layout and release status
 
-`packages/`: core, node, fetch, hono, postgres, typeorm, nestjs, testing and cli. `examples/`: NestJS + TypeORM orders endpoint. `apps/docs` and `apps/playground` remain placeholders.
+`packages/`: core, node, fetch, hono, postgres, sqlserver, typeorm, nestjs, testing and cli. `examples/`: NestJS + TypeORM orders endpoint. `apps/docs` and `apps/playground` remain placeholders.
 
 Packages are ESM with TypeScript declarations. No npm packages or hosted services have been published, and package-name availability has not been checked. The [complete roadmap](docs/implementation-plan.md) covers remaining databases, ORMs, frameworks, runtime support, tooling, security review and deployment.

@@ -49,19 +49,30 @@ The TypeORM adapter keeps its own lifecycle; the direct adapter does not wrap or
 
 Reusable `adapterConformanceCases` are independent of a test runner and driver. Fixtures map each driver's operations to common seeded records; cases check isolation, CRUD, rejected ownership changes, missing context/routes, concurrency and requested rollback guarantees. Both TypeORM and direct pg execute the suite against PostgreSQL. Driver-specific lifecycle tests supplement it.
 
+## SQL Server session ownership
+
+The SQL Server adapter implements the same portable DatabaseAdapter contract using Tedious and an adapter-owned physical connection pool. This deliberately avoids ORM or node-mssql transaction helpers that return a lease to their pool at commit/rollback, before TenantGuard can clear session state.
+
+Policy migrations generate a schema-bound inline predicate and enabled FILTER/AFTER INSERT/AFTER UPDATE BLOCK predicates. Runtime context is SESSION_CONTEXT, not transaction-local. Explicit clearing, verification, driver reset and a second verification all occur on the pinned connection before release. Reset or clearing uncertainty destroys that connection. Read-only poisoned keys are rejected through destruction rather than exposed to another tenant.
+
+The adapter validates effective privileges, declared policy bindings and tenant columns, serializes requests and checks tenant/user/database/transaction/options after each data batch. Persistent SET options use a TDS batch rather than sp_executesql. Reusable conformance tests plus real request cancellation, lock timeouts, role grants and backend termination tests verify this lifecycle.
+
+This is a trusted parameterized T-SQL batch interface, not a general SQL parser: embedded transaction/session management is outside its contract. Database-policy mode does not certify arbitrary function bodies, modules or undeclared tables. SQL Server 2022 is tested locally under x86-64 emulation on ARM; native Linux CI is configured but not run remotely. See the [SQL Server guide](../packages/sqlserver/README.md).
+
 ## Current support
 
-| Area                            | Implemented                                                                                                | Still planned                                                                          |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Portable core                   | Explicit scopes, authorization contract, routing/capability contracts                                      | Registry cache/provisioning, full diagnostics                                          |
-| Node                            | Default and isolated AsyncLocalStorage carriers                                                            | Worker/stream-specific lifecycle certification                                         |
-| Fetch                           | Request handler wrapper; explicit context                                                                  | Platform-specific runtime certification                                                |
-| Hono                            | Typed middleware; explicit context or supplied Node carrier; request-level concurrency tests               | Bun/Deno/Workers certification, full HTTP server example                               |
-| NestJS                          | Authorizer option, legacy resolver, interceptor/decorator; subscription lifecycle tests                    | Full HTTP/e2e and non-HTTP integrations                                                |
-| PostgreSQL                      | UUID policies, direct pg adapter with guarded lifecycle, TypeORM helpers; shared real-database conformance | Policy-expression analysis, partition/proxy certification and TypeORM lifecycle parity |
-| Other databases/ORMs/frameworks | Public contracts only                                                                                      | Concrete adapters and real-engine conformance suites                                   |
+| Area                            | Implemented                                                                                                   | Still planned                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Portable core                   | Explicit scopes, authorization contract, routing/capability contracts                                         | Registry cache/provisioning, full diagnostics                                          |
+| Node                            | Default and isolated AsyncLocalStorage carriers                                                               | Worker/stream-specific lifecycle certification                                         |
+| Fetch                           | Request handler wrapper; explicit context                                                                     | Platform-specific runtime certification                                                |
+| Hono                            | Typed middleware; explicit context or supplied Node carrier; request-level concurrency tests                  | Bun/Deno/Workers certification, full HTTP server example                               |
+| NestJS                          | Authorizer option, legacy resolver, interceptor/decorator; subscription lifecycle tests                       | Full HTTP/e2e and non-HTTP integrations                                                |
+| PostgreSQL                      | UUID policies, direct pg adapter with guarded lifecycle, TypeORM helpers; shared real-database conformance    | Policy-expression analysis, partition/proxy certification and TypeORM lifecycle parity |
+| SQL Server                      | Native RLS policy helpers, dedicated Tedious pool, verified session cleanup, real conformance/lifecycle tests | Azure SQL, authentication/runtime/version expansion and policy audit CLI               |
+| Other databases/ORMs/frameworks | Public contracts only                                                                                         | Concrete adapters and real-engine conformance suites                                   |
 
-Portability checks build core/Fetch/Hono for a browser target and reject Node imports in that graph. They establish an import boundary, not certification of edge deployment or database connectivity. Packed core/Node/Fetch/PostgreSQL packages are installed into an isolated temporary consumer offline and tested as JavaScript and TypeScript.
+Portability checks build core/Fetch/Hono for a browser target and reject Node imports in that graph. They establish an import boundary, not certification of edge deployment or database connectivity. Packed core/Node/Fetch/PostgreSQL/SQL Server packages are installed into an isolated temporary consumer offline and tested as JavaScript and TypeScript.
 
 ## Phase 0 verification and limitations
 
