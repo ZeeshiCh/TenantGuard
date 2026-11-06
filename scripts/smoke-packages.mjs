@@ -485,11 +485,18 @@ try {
     assert.match(help,/doctor/);
     const filename=resolve('diagnostics.sqlite');
     const db=new DatabaseSync(filename);
-    db.exec('CREATE TABLE orders(id TEXT PRIMARY KEY,tenant_id TEXT NOT NULL);CREATE INDEX tenant_orders ON orders(tenant_id)'); db.close();
+    db.exec("CREATE TABLE orders(id TEXT NOT NULL PRIMARY KEY,tenant_id TEXT NOT NULL);CREATE INDEX tenant_orders ON orders(tenant_id);INSERT INTO orders VALUES('seed-a','Org_A'),('seed-b','org_a')"); db.close();
     const config={version:1,sources:[{name:'local',engine:'sqlite',mode:'application-filter',filenameEnv:'TG_FILE',targets:[{table:'orders',tenantColumn:'tenant_id'}]}]};
     assert.equal(parseDiagnosticConfig(config).sources.length,1);
     writeFileSync('diagnostics.json',JSON.stringify(config));
+    const bin=resolve('node_modules/.bin/tenantguard');
+    const initialize=JSON.parse(execFileSync(bin,['init','--engine','postgres','--output','generated.json','--json'],{encoding:'utf8'}));
+    assert.equal(initialize.exitCode,0);
+    const policy=JSON.parse(execFileSync(bin,['generate-policy','--config','generated.json','--json'],{encoding:'utf8'}));
+    assert.match(policy.artifact.batches[0],/FORCE ROW LEVEL SECURITY/);
     const before=readFileSync(filename);
+    const isolation=JSON.parse(execFileSync(bin,['test-isolation','--config','diagnostics.json','--source','local','--target','main.orders','--tenant-a-env','TA','--tenant-b-env','TB','--row-a-env','RA','--row-b-env','RB','--json'],{encoding:'utf8',env:{...process.env,TG_FILE:filename,TA:'Org_A',TB:'org_a',RA:'seed-a',RB:'seed-b'}}));
+    assert.equal(isolation.exitCode,0);assert.ok(isolation.findings.some(f=>f.code==='ISOLATION.READ_BOUNDARY_OBSERVED'));assert.deepEqual(readFileSync(filename),before);
     for(const args of [['doctor'],['audit'],['doctor','--connect']]) {
       const report=JSON.parse(execFileSync(resolve('node_modules/.bin/tenantguard'),[...args,'--config','diagnostics.json','--json'],{encoding:'utf8',env:{...process.env,TG_FILE:filename}}));
       assert.equal(report.exitCode,0); assert.equal(report.complete,true);
