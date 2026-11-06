@@ -42,6 +42,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["packages/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"],
+  "include": [
+    "packages/**/*.ts",
+    "tests/**/*.ts",
+    "examples/**/*.ts",
+    "benchmarks/**/*.ts"
+  ],
   "exclude": ["tests/prisma/generated"]
 }

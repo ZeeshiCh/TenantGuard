@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "runtime": {
+    "node": "v25.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M1",
+    "cpuCount": 8
+  },
+  "iterations": 30,
+  "warmup": 5,
+  "concurrency": 1,
+  "results": [
+    {
+      "name": "core.direct-callback",
+      "unit": "milliseconds per complete operation",
+      "count": 30,
+      "meanMs": 0.0006680000000017117,
+      "p50Ms": 0.0003330000000119071,
+      "p95Ms": 0.002375000000000682,
+      "minMs": 0.00020799999998644125,
+      "maxMs": 0.006042000000007874,
+      "operationsPerSecond": 1497005.988020116
+    },
+    {
+      "name": "core.node-context-scope",
+      "unit": "milliseconds per complete operation",
+      "count": 30,
+      "meanMs": 0.004498599999998494,
+      "p50Ms": 0.0017499999999870397,
+      "p95Ms": 0.0105829999999969,
+      "minMs": 0.0014999999999929514,
+      "maxMs": 0.05174999999999841,
+      "operationsPerSecond": 222291.3795403758
+    },
+    {
+      "name": "core.authorization-and-context",
+      "unit": "milliseconds per complete operation",
+      "count": 30,
+      "meanMs": 0.002773599999999495,
+      "p50Ms": 0.002290999999985388,
+      "p95Ms": 0.004750000000001364,
+      "minMs": 0.002124999999978172,
+      "maxMs": 0.0058339999999930114,
+      "operationsPerSecond": 360542.2555524164
+    },
+    {
+      "name": "core.authorized-routed-memory-scope",
+      "unit": "milliseconds per complete operation",
+      "count": 30,
+      "meanMs": 0.004795866666668758,
+      "p50Ms": 0.003999999999990678,
+      "p95Ms": 0.013750000000015916,
+      "minMs": 0.002625000000023192,
+      "maxMs": 0.014958999999976186,
+      "operationsPerSecond": 208512.88609626985
+    },
+    {
+      "name": "postgres.manual-transaction-context-read",
+      "unit": "milliseconds per complete operation",
+      "count": 30,
+      "meanMs": 1.112422200000007,
+      "p50Ms": 1.0993749999997817,
+      "p95Ms": 1.380750000000262,
+      "minMs": 0.9295000000001892,
+      "maxMs": 1.4880829999997331,
+      "operationsPerSecond": 898.9392696406038
+    },
+    {
+      "name": "postgres.guarded-native-policy-scope",
+      "unit": "milliseconds per complete operation",
+      "count": 30,
+      "meanMs": 5.1275681333333525,
+      "p50Ms": 4.735957999999755,
+      "p95Ms": 7.676707999999962,
+      "minMs": 3.930833000000348,
+      "maxMs": 8.550332999999682,
+      "operationsPerSecond": 195.02422473905102
+    },
+    {
+      "name": "sqlite.prepared-direct-read",
+      "unit": "milliseconds per complete operation",
+      "count": 30,
+      "meanMs": 0.008722166666620979,
+      "p50Ms": 0.0071250000000873115,
+      "p95Ms": 0.017208000000209722,
+      "minMs": 0.006125000000338332,
+      "maxMs": 0.022249999999985448,
+      "operationsPerSecond": 114650.41178666288
+    },
+    {
+      "name": "sqlite.guarded-worker-transaction-scope",
+      "unit": "milliseconds per complete operation",
+      "count": 30,
+      "meanMs": 23.072706866666717,
+      "p50Ms": 21.554415999999947,
+      "p95Ms": 31.195541999999932,
+      "minMs": 18.974041999999827,
+      "maxMs": 44.54583300000013,
+      "operationsPerSecond": 43.34125188599809
+    }
+  ],
+  "limitations": [
+    "Serial local measurements include assertions, await and complete scope lifecycle; not isolated query costs or production capacity.",
+    "SQLite baseline is a prepared synchronous read; guarded scopes include worker creation, schema verification and transactions. PostgreSQL baseline includes its own transaction/context.",
+    "Warmup is excluded; nearest-rank percentiles are descriptive, with no regression thresholds or cross-engine speed claims."
+  ]
+}

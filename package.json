@@ -15,7 +15,8 @@
     "format:check": "prettier --check .",
     "check:portable": "node scripts/check-portable.mjs",
     "test:packages": "node scripts/smoke-packages.mjs",
-    "generate:prisma": "node scripts/generate-prisma.mjs"
+    "generate:prisma": "node scripts/generate-prisma.mjs",
+    "benchmark": "node --import tsx benchmarks/run.ts"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.0",
