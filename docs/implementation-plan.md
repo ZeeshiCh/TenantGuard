@@ -2,7 +2,7 @@
 
 Status: proposed implementation roadmap, November 6, 2026. This document describes future work; it is not a claim of implemented support. No hosting resources or npm packages have been created.
 
-Current milestone: the portable core and Node/NestJS/Hono integrations, PostgreSQL (direct pg and TypeORM), SQL Server native RLS, MySQL/MariaDB scoped CRUD and MongoDB scoped CRUD/aggregation are implemented locally. MongoDB uses application-filter isolation and replica-set transactions; arbitrary pipelines, bulk/upsert operations, Mongoose and sharded deployments remain future work. See [current support](architecture.md) and [verified progress](progress.md). The original baseline below is historical; this plan still includes substantial unfinished release work.
+Current milestone: the portable core and Node/NestJS/Hono integrations, PostgreSQL (direct pg and TypeORM), SQL Server native RLS, MySQL/MariaDB scoped CRUD, MongoDB scoped CRUD/aggregation and SQLite worker-owned file CRUD are implemented locally. MongoDB uses application-filter isolation and replica-set transactions; SQLite uses application-filter isolation with explicit transactions and fresh per-scope connections; arbitrary pipelines, bulk/upsert operations, Mongoose and sharded deployments remain future work. See [current support](architecture.md) and [verified progress](progress.md). The original baseline below is historical; this plan still includes substantial unfinished release work.
 
 ## 1. Product and scope
 
