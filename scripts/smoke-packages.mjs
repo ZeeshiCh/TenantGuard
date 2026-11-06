@@ -88,6 +88,7 @@ try {
     'mongodb',
     'sqlite',
     'prisma',
+    'drizzle',
   ])
     pack(join(root, 'packages', name), true);
   pack(
@@ -193,6 +194,14 @@ try {
     import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
     import { createSqliteResource, createSqliteAdapter } from '@tenantguard/sqlite';
     import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
+    import { createDrizzlePgResource, createDrizzleMysqlResource, createDrizzleAdapter } from '@tenantguard/drizzle';
+    import { pgTable, text } from 'drizzle-orm/pg-core';
+    const drizzleOrders=pgTable('orders',{id:text('id').primaryKey(),tenantId:text('tenant_id').notNull(),value:text('value')});
+    const drizzleResource=createDrizzlePgResource({connection:{host:'localhost'}});
+    const drizzleAdapter=createDrizzleAdapter({resolveResource:()=>drizzleResource,tables:{orders:{table:drizzleOrders,tenantColumn:'tenantId',idColumn:'id',columns:['id','tenantId','value']}}});
+    const drizzleMysqlResource=createDrizzleMysqlResource({connection:{host:'localhost',database:'example'}});
+    await drizzleMysqlResource.close();
+    await drizzleResource.close();
     const prismaDatamodel={models:[{name:'Order',dbName:'orders',fields:['id','tenantId','value'].map(name=>({name,kind:'scalar',type:'String',isList:false,isRequired:true}))}]};
     const prismaResource=createPrismaResource({provider:'postgresql',datamodel:prismaDatamodel,createClient:()=>({$transaction:async work=>work({$queryRawUnsafe:async()=>[{safe:true}]}),$disconnect:async()=>{}})});
     const prismaAdapter=createPrismaAdapter({resolveResource:()=>prismaResource,models:{orders:{model:'Order',tenantField:'tenantId',idField:'id',fields:['id','tenantId','value']}}});
@@ -223,6 +232,8 @@ try {
     } finally { await sqliteResource.close(); }
     assert.equal(adapter.name, 'pg');
     assert.equal(prismaAdapter.name,'prisma');
+    assert.equal(drizzleAdapter.name,'drizzle');
+    assert.throws(()=>createTenantRouter({strict:true,sources:{orders:{adapter:drizzleAdapter,mode:'application-filter'}},registry:{resolve:async()=>undefined}}));
     assert.throws(()=>createTenantRouter({strict:true,sources:{orders:{adapter:prismaAdapter,mode:'application-filter'}},registry:{resolve:async()=>undefined}}));
     await prismaAdapter.run({tenantId:'Org_A'},{tenantId:'Org_A',adapter:'prisma',source:'orders',resource:'test',revision:'1',status:'active',mode:'application-filter'},async()=>{});
     await prismaResource.close();
@@ -244,6 +255,23 @@ try {
   `,
   );
   execFileSync(process.execPath, ['consumer.mjs'], {
+    cwd: temporary,
+    stdio: 'inherit',
+  });
+  writeFileSync(
+    join(temporary, 'drizzle-consumer.cjs'),
+    `
+    const assert = require('node:assert/strict');
+    const {pgTable,text} = require('drizzle-orm/pg-core');
+    const orders=pgTable('orders',{id:text('id').primaryKey(),tenantId:text('tenant_id').notNull(),value:text('value')});
+    import('@tenantguard/drizzle').then(async ({createDrizzlePgResource,createDrizzleAdapter})=>{
+      const resource=createDrizzlePgResource({connection:{host:'localhost'}});
+      const adapter=createDrizzleAdapter({resolveResource:()=>resource,tables:{orders:{table:orders,tenantColumn:'tenantId',idColumn:'id',columns:['id','tenantId','value']}}});
+      assert.equal(adapter.name,'drizzle');await resource.close();
+    }).catch(error=>{console.error(error);process.exitCode=1;});
+  `,
+  );
+  execFileSync(process.execPath, ['drizzle-consumer.cjs'], {
     cwd: temporary,
     stdio: 'inherit',
   });
@@ -314,8 +342,48 @@ try {
     ],
     { cwd: temporary, stdio: 'inherit' },
   );
+  // Drizzle 0.45.4's declarations reference optional drivers and contain upstream
+  // declaration errors. Keep the original consumer fully checked; only this
+  // Drizzle-specific consumer skips dependency .d.ts checking, not strict usage.
+  writeFileSync(
+    join(temporary, 'drizzle-consumer.ts'),
+    `
+    import {pgTable,text} from 'drizzle-orm/pg-core';
+    import {sql} from 'drizzle-orm';
+    import {createDrizzlePgResource,createDrizzleMysqlResource,createDrizzleAdapter,type DrizzleScopedClient} from '@tenantguard/drizzle';
+    import type {DatabaseAdapter} from '@tenantguard/core';
+    const orders=pgTable('orders',{id:text('id').primaryKey(),tenantId:text('tenant_id').notNull(),value:text('value')});
+    const resource=createDrizzlePgResource({connection:{host:'localhost'}});
+    const adapter:DatabaseAdapter<DrizzleScopedClient>=createDrizzleAdapter({resolveResource:()=>resource,tables:{orders:{table:orders,tenantColumn:'tenantId',idColumn:'id',columns:['id','tenantId','value']}}});
+    const rows=(client:DrizzleScopedClient)=>client.table<typeof orders.$inferSelect>('orders').find();
+    function invalid(client:DrizzleScopedClient){
+      // @ts-expect-error SQL objects cannot be facade equality values.
+      void client.table('orders').find({id:sql\`1=1\`});
+      // @ts-expect-error MySQL resources must declare their database.
+      createDrizzleMysqlResource({connection:{host:'localhost'}});
+    }
+    void adapter;void rows;void invalid;
+  `,
+  );
+  execFileSync(
+    process.execPath,
+    [
+      join(root, 'node_modules/typescript/bin/tsc'),
+      '--strict',
+      '--noEmit',
+      '--skipLibCheck',
+      '--target',
+      'ES2022',
+      '--module',
+      'NodeNext',
+      '--moduleResolution',
+      'NodeNext',
+      'drizzle-consumer.ts',
+    ],
+    { cwd: temporary, stdio: 'inherit' },
+  );
   console.log(
-    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma: clean offline JavaScript and TypeScript consumers passed',
+    'Packed core/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
