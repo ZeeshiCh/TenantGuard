@@ -109,6 +109,7 @@ try {
   for (const name of [
     'core',
     'registry',
+    'lifecycle',
     'resources',
     'node',
     'fetch',
@@ -202,6 +203,8 @@ try {
     import { createTenantGuard, createTenantRouter } from '@tenantguard/core';
     import { nodeContext, requireTenant } from '@tenantguard/node';
     import { createCachedTenantRegistry } from '@tenantguard/registry';
+    import {createMemoryLifecycleStore,createTenantLifecycle,createLifecycleRegistry,createLifecycleAdapter} from '@tenantguard/lifecycle';
+    import {createPgLifecycleStore,createPgLifecycleAdapter,pgLifecycleSchemaSql} from '@tenantguard/lifecycle/pg';
     import {createTenantResourcePool,createPooledAdapter} from '@tenantguard/resources';
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
@@ -214,6 +217,21 @@ try {
     import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
     import { createDrizzlePgResource, createDrizzleMysqlResource, createDrizzleAdapter } from '@tenantguard/drizzle';
     import { pgTable, text } from 'drizzle-orm/pg-core';
+    const lifecycleStore=createMemoryLifecycleStore();
+    const lifecycleManager=createTenantLifecycle({store:lifecycleStore});
+    const lifecycleRoute={tenantId:'Org_A',source:'orders',adapter:'fixture',resource:'pool',revision:'1',status:'active',mode:'database-policy'};
+    await lifecycleManager.provision({route:lifecycleRoute,schemaVersion:'v1',operationId:'initial',work:async()=>{},verify:async()=>{}});
+    const lifecycleAdapter=createLifecycleAdapter({store:lifecycleStore,adapter:{name:'fixture',capabilities:{transactions:true,isolationModes:['database-policy']},run:async(_context,_route,work)=>work({value:'ready'})}});
+    const lifecycleRegistry=createLifecycleRegistry(lifecycleStore);
+    assert.equal((await lifecycleRegistry.resolve({tenantId:'Org_A'},'orders')).status,'active');
+    assert.equal(await lifecycleAdapter.run({tenantId:'Org_A'},lifecycleRoute,async client=>client.value),'ready');
+    await lifecycleManager.suspend({key:{tenantId:'Org_A',source:'orders'},expectedVersion:3});
+    await assert.rejects(lifecycleAdapter.run({tenantId:'Org_A'},lifecycleRoute,async()=>assert.fail('suspended tenant')));
+    await lifecycleManager.close();await lifecycleStore.close();
+    assert(pgLifecycleSchemaSql().includes('FORCE ROW LEVEL SECURITY'));
+    const lifecyclePgStore=createPgLifecycleStore({connection:{host:'localhost'}});await lifecyclePgStore.close();
+    const lifecyclePgPool=new pg.Pool({max:1});
+    assert.equal(createPgLifecycleAdapter({adapter:createPgAdapter({resolvePool:()=>lifecyclePgPool,tables:[{schema:'public',table:'orders'}]})}).name,'pg');await lifecyclePgPool.end();
     const resourceRoute={tenantId:'Org_A',source:'orders',adapter:'fixture',resource:'pool',revision:'1',status:'active',mode:'database-policy'};
     let createdResources=0,closedResources=0;
     const resources=createTenantResourcePool({create:async()=>({id:++createdResources}),destroy:async()=>{closedResources++;},maxResources:1});
@@ -321,6 +339,8 @@ try {
     `
     import { createTenantGuard, createTenantRouter, type DatabaseAdapter } from '@tenantguard/core';
     import { createCachedTenantRegistry } from '@tenantguard/registry';
+    import {createMemoryLifecycleStore,createTenantLifecycle,createLifecycleRegistry,createLifecycleAdapter} from '@tenantguard/lifecycle';
+    import {createPgLifecycleStore,createPgLifecycleAdapter,pgLifecycleSchemaSql} from '@tenantguard/lifecycle/pg';
     import {createTenantResourcePool,createPooledAdapter} from '@tenantguard/resources';
     import { withTenant } from '@tenantguard/fetch';
     import pg from 'pg';
@@ -331,6 +351,15 @@ try {
     import { createMongoResource, createMongoAdapter } from '@tenantguard/mongodb';
     import { createSqliteResource, createSqliteAdapter } from '@tenantguard/sqlite';
     import { createPrismaResource, createPrismaAdapter } from '@tenantguard/prisma';
+    const lifecycleStore=createMemoryLifecycleStore();
+    const lifecycleManager=createTenantLifecycle({store:lifecycleStore});
+    const lifecyclePgStore=createPgLifecycleStore({connection:{host:'localhost'}});
+    const lifecyclePgPool=new pg.Pool({max:1});
+    const lifecyclePg:DatabaseAdapter<PgTenantClient>=createPgLifecycleAdapter({adapter:createPgAdapter({resolvePool:()=>lifecyclePgPool,tables:[{schema:'public',table:'orders'}]})});
+    void createLifecycleRegistry(lifecycleStore);void lifecyclePg;void pgLifecycleSchemaSql();
+    // @ts-expect-error PostgreSQL admission must use the actual data transaction, not a metadata connection.
+    createLifecycleAdapter({store:lifecyclePgStore,adapter:lifecyclePg});
+    await lifecycleManager.close();await lifecycleStore.close();await lifecyclePgStore.close();await lifecyclePgPool.end();
     const resources=createTenantResourcePool({create:async()=>new pg.Pool({max:1}),destroy:async pool=>{await pool.end();}});
     const pooled: DatabaseAdapter<PgTenantClient>=createPooledAdapter({pool:resources,name:'pg',capabilities:{transactions:true,isolationModes:['database-policy']},createAdapter:pool=>createPgAdapter({resolvePool:()=>pool,tables:[{schema:'public',table:'orders'}]})});
     void pooled;await resources.close();
@@ -579,7 +608,7 @@ try {
     { cwd: mongooseTemporary, stdio: 'inherit' },
   );
   console.log(
-    'Packed core/registry/resources/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed; isolated Mongoose driver closure passed',
+    'Packed core/registry/lifecycle/resources/node/fetch/postgres/sqlserver/mysql/mariadb/mongodb/sqlite/prisma/drizzle: clean offline JavaScript and TypeScript consumers passed; isolated Mongoose driver closure passed',
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
