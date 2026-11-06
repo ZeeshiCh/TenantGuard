@@ -107,6 +107,10 @@ This is **application-filter** isolation. Strict router mode rejects it. Native 
 
 Tests use an authenticated MongoDB 8.0 replica-set container pinned by digest, a separate readWrite runtime user and a collection with case-insensitive default collation. The same seven reusable adapter conformance cases run with real CRUD/transactions. Additional real tests cover aggregation, aliases/array ownership, caught server errors, session ending, timeout rollback, expired facades, raw bypass and view rejection. Fault-injection unit tests cover uncertain commit, stalled native requests, late resolution and cleanup retirement.
 
-Standalone servers, sharded/mongos deployments, views/time-series/capped collections, Atlas/failover certification, Mongoose, edge runtimes and arbitrary BSON/query/aggregation support remain deferred. No package has been published or hosted service deployed. Install the library inside your backend and connect to your own replica set.
+Standalone servers, sharded/mongos deployments, views/time-series/capped collections, Atlas/failover certification, edge runtimes and arbitrary BSON/query/aggregation support remain deferred. A separate restricted [Mongoose adapter](../mongoose/README.md) is now implemented; it does not add arbitrary Mongoose behavior to this direct-driver facade. No package has been published or hosted service deployed. Install the library inside your backend and connect to your own replica set.
 
 References: [MongoDB transaction APIs](https://www.mongodb.com/docs/drivers/node/current/crud/transactions/), [shared-collection multi-tenancy](https://www.mongodb.com/docs/atlas/build-multi-tenant-arch/), [lookup semantics](https://www.mongodb.com/docs/manual/reference/operator/aggregation/lookup/).
+
+## Shared policy
+
+The portable guard/compiler implementation now lives in @tenantguard/scoped-mongo and is also used by the Mongoose adapter. Existing exports from this package and the pure @tenantguard/mongodb/guards subpath are preserved. Native driver/session/BSON objects remain owned by their concrete adapter; sharing policy does not flatten Mongoose's driver 7 dependency into this adapter's driver 6 dependency. See the [shared policy guide](../scoped-mongo/README.md).
