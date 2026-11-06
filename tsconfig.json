@@ -30,7 +30,10 @@
       "@tenantguard/drizzle": ["./packages/drizzle/src/index.ts"],
       "@tenantguard/mongoose": ["./packages/mongoose/src/index.ts"],
       "@tenantguard/mongodb/guards": ["./packages/mongodb/src/guards.ts"],
-      "@tenantguard/scoped-mongo": ["./packages/scoped-mongo/src/index.ts"]
+      "@tenantguard/scoped-mongo": ["./packages/scoped-mongo/src/index.ts"],
+      "@tenantguard/express": ["./packages/express/src/index.ts"],
+      "@tenantguard/fastify": ["./packages/fastify/src/index.ts"],
+      "@tenantguard/koa": ["./packages/koa/src/index.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true

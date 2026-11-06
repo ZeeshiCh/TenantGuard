@@ -1,0 +1,27 @@
+{
+  "name": "@tenantguard/koa",
+  "version": "0.0.0",
+  "description": "TenantGuard koa integration",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@tenantguard/core": "workspace:*",
+    "@tenantguard/node": "workspace:*",
+    "@types/koa": "^3.0.0"
+  },
+  "peerDependencies": {
+    "koa": "^3.0.0"
+  }
+}
