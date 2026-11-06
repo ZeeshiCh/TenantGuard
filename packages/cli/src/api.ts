@@ -1,3 +1,4 @@
+import { author, policyText } from './authoring.js';
 import { parseArgs } from 'node:util';
 import { dirname, resolve } from 'node:path';
 import {
@@ -19,7 +20,9 @@ import {
   inspectWithPublishedTool,
   type Inspection,
 } from './processes.js';
-export const HELP = `tenantguard doctor --config <json> [--connect] [--json] [--fail-on error|warning]
+export const HELP = `tenantguard init --engine <engine> [--output tenantguard.json] [--table orders] [--schema name] [--tenant-column tenant_id] [--url-env ENV] [--json]
+tenantguard generate-policy --config <json> [--source name] [--output migration.sql] [--json]
+tenantguard doctor --config <json> [--connect] [--json] [--fail-on error|warning]
 tenantguard audit --config <json> [--json] [--fail-on error|warning]
 Doctor validates offline by default. Audit inspects declared database catalogs read-only.
 Exits: 0 no errors observed; 1 findings; 2 invalid configuration/arguments; 3 incomplete inspection.
@@ -80,6 +83,11 @@ export async function diagnose(
     connected = false,
     failOn: 'error' | 'warning' = 'error';
   try {
+    if (args[0] === 'init' || args[0] === 'generate-policy') {
+      command = args[0];
+      if (args.includes('--help') || args.includes('-h')) return { help: true };
+      return await author(args);
+    }
     const parsed = parseArgs({
       args: [...args],
       allowPositionals: true,
@@ -188,6 +196,6 @@ export async function main(
     io.write(HELP);
     return 0;
   }
-  io.write(renderReport(result, args.includes('--json')));
+  io.write(result.artifact && !args.includes('--json') ? policyText(result.artifact) : renderReport(result, args.includes('--json')));
   return result.exitCode;
 }

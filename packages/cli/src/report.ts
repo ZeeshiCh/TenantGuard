@@ -13,8 +13,18 @@ export interface ReportScope {
   readonly targets: readonly string[];
 }
 export interface DiagnosticReport {
+  readonly artifact?: {
+    readonly engine: string;
+    readonly batches: readonly string[];
+  };
   readonly version: 1;
-  readonly command: 'doctor' | 'audit' | 'unknown';
+  readonly command:
+    | 'doctor'
+    | 'audit'
+    | 'init'
+    | 'generate-policy'
+    | 'test-isolation'
+    | 'unknown';
   readonly connected: boolean;
   readonly complete: boolean;
   readonly outcome:
@@ -29,6 +39,7 @@ export function makeReport(
   connected: boolean,
   findings: readonly Finding[],
   options: {
+    artifact?: { engine: string; batches: readonly string[] };
     invalid?: boolean;
     incomplete?: boolean;
     failOn?: 'error' | 'warning';
@@ -59,6 +70,14 @@ export function makeReport(
         ? 1
         : 0;
   return Object.freeze({
+    ...(options.artifact
+      ? {
+          artifact: Object.freeze({
+            ...options.artifact,
+            batches: Object.freeze([...options.artifact.batches]),
+          }),
+        }
+      : {}),
     version: 1,
     command,
     connected,
@@ -80,7 +99,9 @@ export function makeReport(
     limitations: Object.freeze([
       'Findings cover declared targets and the connected role; collectors can inspect broader catalogs. Missing or inaccessible metadata is not a passed check.',
       'Catalog observations and supported template recognition do not certify tenant isolation, arbitrary policy semantics, application query scoping or production readiness.',
-      'No business rows, cross-tenant write probes, DDL, grants or migrations are executed. Application-filter engines require the scoped application API.',
+      command === 'test-isolation'
+        ? 'Read-only probes inspect only supplied fixture identities through native policies or the bundled scoped adapter. No writes or application authorization/ORM paths are tested.'
+        : 'No business rows, cross-tenant write probes, DDL, grants or migrations are executed. Application-filter engines require the scoped application API.',
     ]),
   });
 }
