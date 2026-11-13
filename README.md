@@ -4,7 +4,7 @@ Multi-tenancy foundations for JavaScript and TypeScript backends.
 
 Early, unpublished prototype. The portable core supports explicit tenant context, authorization contracts and typed routing across multiple named data sources. Node, NestJS, Hono, Fetch, Express 5, Fastify 5 and Koa 3 integrations are implemented. PostgreSQL has direct pg and TypeORM integrations; SQL Server has a direct Tedious adapter with native RLS. MySQL and MariaDB have restricted CRUD adapters with application-filter isolation. MongoDB has restricted CRUD and aggregation; SQLite has worker-owned scoped CRUD over database files. Both use application-filter isolation. Prisma and Drizzle have restricted scoped adapters verified on PostgreSQL, MySQL and MariaDB. Mongoose has isolated scoped models, guarded aggregation and owned replica-set transactions. A portable bounded registry cache supports TTLs, lookup coalescing, invalidation and terminal draining. Managed tenant resources add idle eviction, revision-based secret rotation and bounded shutdown reporting. Provisioning/migration lifecycle APIs add verified activation, explicit recovery and durable PostgreSQL transaction fencing.
 
-See the [implementation plan](docs/implementation-plan.md), [architecture and current support](docs/architecture.md), [security model](docs/security.md), [deployment plan](docs/deployment.md), and [runnable examples](examples/README.md).
+See the [implementation plan](docs/implementation-plan.md), [architecture and current support](docs/architecture.md), [compatibility matrix](docs/compatibility.md), [security model](docs/security.md), [deployment plan](docs/deployment.md), [release checklist](docs/release-checklist.md), and [runnable examples](examples/README.md).
 
 ## Develop
 
