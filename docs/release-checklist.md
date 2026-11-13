@@ -2,6 +2,8 @@
 
 Before the first public npm release:
 
+Run `pnpm release:preflight` first. It verifies the MIT license, package names/versions, Node engine, published `dist` files and that no package still contains `workspace:*` references. A successful preflight means the repository is ready for versioning and credentialed release; it does not publish anything.
+
 - [ ] Configure the GitHub repository owner, npm scope and trusted publisher for the release workflow.
 - [ ] Set package versions and changelogs together; remove `workspace:*` from generated published manifests through the release packaging process.
 - [ ] Run `pnpm check`, `pnpm test:integration`, `pnpm test:examples` and `docker compose -f examples/compose/docker-compose.yml config`.

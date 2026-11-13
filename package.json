@@ -17,7 +17,8 @@
     "test:packages": "node scripts/smoke-packages.mjs",
     "generate:prisma": "node scripts/generate-prisma.mjs",
     "benchmark": "node --import tsx benchmarks/run.ts",
-    "test:examples": "node --import tsx --test tests/examples.integration.ts"
+    "test:examples": "node --import tsx --test tests/examples.integration.ts",
+    "release:preflight": "node scripts/release-preflight.mjs"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.0",
