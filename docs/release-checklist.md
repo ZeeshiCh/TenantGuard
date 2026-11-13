@@ -11,6 +11,7 @@ Run `pnpm release:preflight` first. It verifies the MIT license, package names/v
 - [ ] Review generated PostgreSQL/SQL Server policy SQL with a migration owner and verify restricted runtime roles.
 - [ ] Run the CLI doctor/audit and fixture isolation checks against disposable staging databases.
 - [ ] Complete an independent security review and record any provider/mode exclusions.
+- [ ] Confirm CodeQL and dependency-review workflows are green for the release commit.
 - [ ] Build and inspect package archives; verify declarations, worker files, shebangs and no credentials in tarballs.
 - [ ] Publish with provenance from the protected workflow only; verify installation in clean JavaScript and TypeScript consumers.
 - [ ] Publish static docs and the synthetic demo only after smoke/isolation checks pass.

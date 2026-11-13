@@ -11,6 +11,8 @@ The intended release pipeline is:
 3. GitHub Pages publishes `apps/docs`. The documentation is static and contains no secrets or live database state.
 4. Optional demo deployment runs a synthetic-data Hono/PostgreSQL application with a restricted runtime role. It may be hosted on Render or another container platform; demo credentials and domain are deployment-specific and are not committed here.
 
+CodeQL scans JavaScript/TypeScript changes on pushes, pull requests and a weekly schedule. Dependency review blocks high-severity dependency changes in pull requests. These workflows provide automated screening; they do not replace the independent security review required before a stable release.
+
 Before publishing, configure the repository owner, npm scope access, the `npm-production` environment, npm trusted publishing/provenance, the `NPM_TOKEN` secret if your npm policy requires it, Pages source, container registry permissions and a maintenance/security contact. The protected `publish.yml` workflow requires the literal `publish-0.1.0` confirmation and an explicit verified tag or commit ref, then repeats all checks before `pnpm -r publish`. Until those values exist, the repository is release-ready in code and verification terms but no package or service is automatically published.
 
 The Compose passwords, ports and SQL Server developer image are local-only. Rotate all credentials, disable public database exposure, use private networking and provision TLS certificates before any production deployment.
