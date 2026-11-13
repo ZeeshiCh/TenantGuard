@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/hono",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard hono integration",
   "type": "module",
   "license": "MIT",
@@ -17,9 +17,12 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@tenantguard/core": "workspace:*"
+    "@tenantguard/core": "workspace:^0.1.0"
   },
   "peerDependencies": {
     "hono": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=22.16.0"
   }
 }

@@ -46,9 +46,12 @@ for (const directory of packageDirs) {
     for (const [dependency, version] of Object.entries(
       manifest[section] ?? {},
     )) {
-      if (dependency.startsWith('@tenantguard/') && version === 'workspace:*')
+      if (
+        dependency.startsWith('@tenantguard/') &&
+        !/^workspace:\^\d+\.\d+\.\d+$/.test(version)
+      )
         failures.push(
-          `${manifest.name}: ${section}.${dependency} still uses workspace:*`,
+          `${manifest.name}: ${section}.${dependency} must use workspace:^<release-version> for deterministic packing`,
         );
     }
   }

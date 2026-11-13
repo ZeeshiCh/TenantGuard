@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/registry",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Portable bounded tenant registry cache and invalidation",
   "type": "module",
   "license": "MIT",
@@ -17,6 +17,9 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@tenantguard/core": "workspace:*"
+    "@tenantguard/core": "workspace:^0.1.0"
+  },
+  "engines": {
+    "node": ">=22.16.0"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/postgres",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard postgres utilities",
   "type": "module",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@tenantguard/core": "workspace:*",
+    "@tenantguard/core": "workspace:^0.1.0",
     "@types/pg": "^8.16.0"
   },
   "peerDependencies": {
@@ -31,5 +31,8 @@
     "pg": {
       "optional": true
     }
+  },
+  "engines": {
+    "node": ">=22.16.0"
   }
 }

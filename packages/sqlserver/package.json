@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/sqlserver",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard SQL Server RLS and session adapter",
   "type": "module",
   "license": "MIT",
@@ -17,9 +17,12 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@tenantguard/core": "workspace:*",
+    "@tenantguard/core": "workspace:^0.1.0",
     "tedious": "^19.0.0",
     "tarn": "^3.0.2"
   },
-  "peerDependencies": {}
+  "peerDependencies": {},
+  "engines": {
+    "node": ">=22.16.0"
+  }
 }

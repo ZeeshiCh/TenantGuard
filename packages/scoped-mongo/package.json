@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/scoped-mongo",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard portable document ownership and aggregation policy",
   "type": "module",
   "license": "MIT",
@@ -15,5 +15,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
+  },
+  "engines": {
+    "node": ">=22.16.0"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard core utilities",
   "type": "module",
   "license": "MIT",
@@ -17,5 +17,8 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {},
-  "peerDependencies": {}
+  "peerDependencies": {},
+  "engines": {
+    "node": ">=22.16.0"
+  }
 }

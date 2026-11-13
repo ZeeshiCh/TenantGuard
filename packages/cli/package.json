@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard cli utilities",
   "type": "module",
   "license": "MIT",
@@ -17,18 +17,18 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@tenantguard/postgres": "workspace:*",
+    "@tenantguard/postgres": "workspace:^0.1.0",
     "pg": "^8.16.0",
-    "@tenantguard/core": "workspace:*",
-    "@tenantguard/sqlserver": "workspace:*",
+    "@tenantguard/core": "workspace:^0.1.0",
+    "@tenantguard/sqlserver": "workspace:^0.1.0",
     "tenant-audit": "0.2.0",
     "db-deploy-doctor": "0.2.0",
     "mysql2": "^3.24.6",
     "mongodb": "^6.20.0",
-    "@tenantguard/mysql": "workspace:*",
-    "@tenantguard/mariadb": "workspace:*",
-    "@tenantguard/mongodb": "workspace:*",
-    "@tenantguard/sqlite": "workspace:*"
+    "@tenantguard/mysql": "workspace:^0.1.0",
+    "@tenantguard/mariadb": "workspace:^0.1.0",
+    "@tenantguard/mongodb": "workspace:^0.1.0",
+    "@tenantguard/sqlite": "workspace:^0.1.0"
   },
   "peerDependencies": {},
   "bin": {

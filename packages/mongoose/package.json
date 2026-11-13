@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/mongoose",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard scoped Mongoose models, aggregation guards and owned sessions",
   "type": "module",
   "license": "MIT",
@@ -17,8 +17,11 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@tenantguard/core": "workspace:*",
+    "@tenantguard/core": "workspace:^0.1.0",
     "mongoose": "9.12.0",
-    "@tenantguard/scoped-mongo": "workspace:*"
+    "@tenantguard/scoped-mongo": "workspace:^0.1.0"
+  },
+  "engines": {
+    "node": ">=22.16.0"
   }
 }

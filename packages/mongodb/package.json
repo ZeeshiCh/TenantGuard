@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/mongodb",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard MongoDB scoped CRUD and aggregation",
   "type": "module",
   "license": "MIT",
@@ -21,9 +21,12 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@tenantguard/core": "workspace:*",
+    "@tenantguard/core": "workspace:^0.1.0",
     "mongodb": "^6.20.0",
-    "@tenantguard/scoped-mongo": "workspace:*"
+    "@tenantguard/scoped-mongo": "workspace:^0.1.0"
   },
-  "peerDependencies": {}
+  "peerDependencies": {},
+  "engines": {
+    "node": ">=22.16.0"
+  }
 }

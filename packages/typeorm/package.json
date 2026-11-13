@@ -1,6 +1,6 @@
 {
   "name": "@tenantguard/typeorm",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "TenantGuard typeorm utilities",
   "type": "module",
   "license": "MIT",
@@ -17,11 +17,14 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@tenantguard/core": "workspace:*",
-    "@tenantguard/postgres": "workspace:*",
-    "@tenantguard/node": "workspace:*"
+    "@tenantguard/core": "workspace:^0.1.0",
+    "@tenantguard/postgres": "workspace:^0.1.0",
+    "@tenantguard/node": "workspace:^0.1.0"
   },
   "peerDependencies": {
     "typeorm": "^0.3.0"
+  },
+  "engines": {
+    "node": ">=22.16.0"
   }
 }

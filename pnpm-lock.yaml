@@ -192,25 +192,25 @@ importers:
   packages/cli:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/mariadb':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../mariadb
       '@tenantguard/mongodb':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../mongodb
       '@tenantguard/mysql':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../mysql
       '@tenantguard/postgres':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../postgres
       '@tenantguard/sqlite':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../sqlite
       '@tenantguard/sqlserver':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../sqlserver
       db-deploy-doctor:
         specifier: 0.2.0
@@ -233,10 +233,10 @@ importers:
   packages/drizzle:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/scoped-sql':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../scoped-sql
       '@types/pg':
         specifier: ^8.16.0
@@ -254,10 +254,10 @@ importers:
   packages/express:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/node':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../node
       '@types/express':
         specifier: ^5.0.0
@@ -269,10 +269,10 @@ importers:
   packages/fastify:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/node':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../node
       fastify:
         specifier: ^5.0.0
@@ -281,13 +281,13 @@ importers:
   packages/fetch:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
 
   packages/hono:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       hono:
         specifier: ^4.0.0
@@ -296,10 +296,10 @@ importers:
   packages/koa:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/node':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../node
       '@types/koa':
         specifier: ^3.0.0
@@ -311,10 +311,10 @@ importers:
   packages/lifecycle:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/postgres':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../postgres
       '@types/pg':
         specifier: ^8.16.0
@@ -326,10 +326,10 @@ importers:
   packages/mariadb:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/scoped-sql':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../scoped-sql
       mariadb:
         specifier: ^3.5.4
@@ -338,10 +338,10 @@ importers:
   packages/mongodb:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/scoped-mongo':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../scoped-mongo
       mongodb:
         specifier: ^6.20.0
@@ -350,10 +350,10 @@ importers:
   packages/mongoose:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/scoped-mongo':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../scoped-mongo
       mongoose:
         specifier: 9.12.0
@@ -362,10 +362,10 @@ importers:
   packages/mysql:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/scoped-sql':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../scoped-sql
       mysql2:
         specifier: ^3.24.6
@@ -377,10 +377,10 @@ importers:
         specifier: ^11.0.0
         version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/node':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../node
       rxjs:
         specifier: ^7.0.0
@@ -389,13 +389,13 @@ importers:
   packages/node:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
 
   packages/postgres:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@types/pg':
         specifier: ^8.16.0
@@ -410,22 +410,22 @@ importers:
         specifier: 7.10.1
         version: 7.10.1
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/scoped-sql':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../scoped-sql
 
   packages/registry:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
 
   packages/resources:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
 
   packages/scoped-mongo: {}
@@ -433,7 +433,7 @@ importers:
   packages/scoped-sql:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       tarn:
         specifier: ^3.0.2
@@ -442,16 +442,16 @@ importers:
   packages/sqlite:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/scoped-sql':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../scoped-sql
 
   packages/sqlserver:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       tarn:
         specifier: ^3.0.2
@@ -463,22 +463,22 @@ importers:
   packages/testing:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/node':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../node
 
   packages/typeorm:
     dependencies:
       '@tenantguard/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@tenantguard/node':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../node
       '@tenantguard/postgres':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../postgres
       typeorm:
         specifier: ^0.3.0
