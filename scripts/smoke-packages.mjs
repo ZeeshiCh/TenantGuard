@@ -22,7 +22,7 @@ function installPacked(directory, externalPeers = false) {
     'npm',
     [
       'install',
-      '--offline',
+      '--prefer-offline',
       ...(externalPeers ? ['--legacy-peer-deps'] : []),
       '--ignore-scripts',
       '--no-audit',
