@@ -2,7 +2,7 @@
 
 Before the first public npm release:
 
-Run `pnpm release:preflight` first. It verifies the MIT license, package names/versions, Node engine, published `dist` files and that no package still contains `workspace:*` references. A successful preflight means the repository is ready for versioning and credentialed release; it does not publish anything.
+Run `pnpm release:preflight` first. It verifies the MIT license, package names/versions, Node engine, published `dist` files and deterministic workspace ranges. Then run `pnpm release:pack`; it creates temporary archives for only the TenantGuard workspaces and inspects their packed manifests for rewritten dependency ranges and `dist` contents. A successful preflight means the repository is ready for versioning and credentialed release; it does not publish anything.
 
 - [ ] Configure the GitHub repository owner, npm scope and trusted publisher for the release workflow.
 - [ ] Set package versions and changelogs together; remove `workspace:*` from generated published manifests through the release packaging process.

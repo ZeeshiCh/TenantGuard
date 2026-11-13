@@ -18,7 +18,8 @@
     "generate:prisma": "node scripts/generate-prisma.mjs",
     "benchmark": "node --import tsx benchmarks/run.ts",
     "test:examples": "node --import tsx --test tests/examples.integration.ts",
-    "release:preflight": "node scripts/release-preflight.mjs"
+    "release:preflight": "node scripts/release-preflight.mjs",
+    "release:pack": "node scripts/release-pack-check.mjs"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.0",
