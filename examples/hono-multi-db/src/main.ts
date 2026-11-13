@@ -1,8 +1,8 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { createServer } from 'node:http';
 import pg from 'pg';
 import { createTenantGuard } from '@tenantguard/core';
-import { tenantMiddleware } from '@tenantguard/hono';
+import { tenantMiddleware, type TenantEnv } from '@tenantguard/hono';
 import { nodeContext } from '@tenantguard/node';
 import { createPgAdapter } from '@tenantguard/postgres/pg';
 
@@ -16,14 +16,14 @@ const adapter = createPgAdapter({
   resolvePool: () => pool,
   tables: [{ schema: 'public', table: 'orders' }],
 });
-const guard = createTenantGuard({
+const guard = createTenantGuard<Context<TenantEnv>>({
   carrier: nodeContext,
-  authorize: (request: Request) =>
-    request.headers.get('authorization') === `Bearer ${token}`
+  authorize: (context) =>
+    context.req.header('authorization') === `Bearer ${token}`
       ? { tenantId: tenant, principalId: 'demo-user' }
       : undefined,
 });
-const app = new Hono();
+const app = new Hono<TenantEnv>();
 app.use('/orders', tenantMiddleware(guard));
 app.get('/orders', async (c) => {
   const context = c.get('tenant');
@@ -45,9 +45,9 @@ app.get('/orders', async (c) => {
   );
   return c.json(result.rows);
 });
-const server = createServer((request, response) =>
-  app
-    .fetch(
+const server = createServer((request, response) => {
+  void Promise.resolve(
+    app.fetch(
       new Request(
         `http://${request.headers.host ?? 'localhost'}${request.url}`,
         {
@@ -55,12 +55,12 @@ const server = createServer((request, response) =>
           headers: request.headers as Record<string, string>,
         },
       ),
-    )
-    .then(async (result) => {
-      response.writeHead(result.status, Object.fromEntries(result.headers));
-      response.end(await result.text());
-    }),
-);
+    ),
+  ).then(async (result) => {
+    response.writeHead(result.status, Object.fromEntries(result.headers));
+    response.end(await result.text());
+  });
+});
 server.listen(Number(process.env.PORT ?? 3002));
 process.once('SIGTERM', async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
