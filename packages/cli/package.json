@@ -36,5 +36,14 @@
   },
   "engines": {
     "node": ">=22.16.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZeeshiCh/TenantGuard.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/ZeeshiCh/TenantGuard/issues"
+  },
+  "homepage": "https://zeeshich.github.io/TenantGuard/"
 }

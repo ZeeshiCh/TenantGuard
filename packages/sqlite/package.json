@@ -22,5 +22,14 @@
   "dependencies": {
     "@tenantguard/core": "workspace:^0.1.0",
     "@tenantguard/scoped-sql": "workspace:^0.1.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZeeshiCh/TenantGuard.git",
+    "directory": "packages/sqlite"
+  },
+  "bugs": {
+    "url": "https://github.com/ZeeshiCh/TenantGuard/issues"
+  },
+  "homepage": "https://zeeshich.github.io/TenantGuard/"
 }
