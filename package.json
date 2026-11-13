@@ -16,7 +16,8 @@
     "check:portable": "node scripts/check-portable.mjs",
     "test:packages": "node scripts/smoke-packages.mjs",
     "generate:prisma": "node scripts/generate-prisma.mjs",
-    "benchmark": "node --import tsx benchmarks/run.ts"
+    "benchmark": "node --import tsx benchmarks/run.ts",
+    "test:examples": "node --import tsx --test tests/examples.integration.ts"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.0",

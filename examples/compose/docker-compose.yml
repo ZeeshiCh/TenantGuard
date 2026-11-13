@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      {
+        POSTGRES_USER: tenantguard_app,
+        POSTGRES_PASSWORD: local-development-only,
+        POSTGRES_DB: tenantguard,
+      }
+    ports: ['5432:5432']
+    healthcheck:
+      {
+        test: ['CMD-SHELL', 'pg_isready -U tenantguard_app -d tenantguard'],
+        interval: 5s,
+        timeout: 3s,
+        retries: 20,
+      }
+  mysql:
+    image: mysql:8.4
+    environment:
+      {
+        MYSQL_ROOT_PASSWORD: root-local-only,
+        MYSQL_DATABASE: tenantguard,
+        MYSQL_USER: tenantguard_app,
+        MYSQL_PASSWORD: local-development-only,
+      }
+    ports: ['3306:3306']
+    healthcheck:
+      {
+        test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost'],
+        interval: 5s,
+        timeout: 3s,
+        retries: 30,
+      }
+  mariadb:
+    image: mariadb:11.8
+    environment:
+      {
+        MARIADB_ROOT_PASSWORD: root-local-only,
+        MARIADB_DATABASE: tenantguard,
+        MARIADB_USER: tenantguard_app,
+        MARIADB_PASSWORD: local-development-only,
+      }
+    ports: ['3307:3306']
+    healthcheck:
+      {
+        test: ['CMD', 'healthcheck.sh', '--connect'],
+        interval: 5s,
+        timeout: 3s,
+        retries: 30,
+      }
+  mongo:
+    image: mongo:8.0
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all']
+    ports: ['27017:27017']
+    healthcheck:
+      {
+        test:
+          [
+            'CMD',
+            'mongosh',
+            '--quiet',
+            '--eval',
+            'db.adminCommand({ ping: 1 }).ok',
+          ],
+        interval: 5s,
+        timeout: 3s,
+        retries: 30,
+      }
+  mongo-init:
+    image: mongo:8.0
+    depends_on:
+      mongo: { condition: service_healthy }
+    restart: 'no'
+    entrypoint:
+      [
+        'mongosh',
+        'mongodb://mongo:27017/admin',
+        '--eval',
+        'try { rs.status() } catch (error) { rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] }) }',
+      ]
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    profiles: ['sqlserver']
+    environment:
+      {
+        ACCEPT_EULA: 'Y',
+        MSSQL_PID: Developer,
+        MSSQL_SA_PASSWORD: 'TenantGuard_local_Only9!',
+      }
+    ports: ['1433:1433']

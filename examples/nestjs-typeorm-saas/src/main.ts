@@ -39,4 +39,4 @@ class AppModule {}
 await db.initialize();
 const app = await NestFactory.create(AppModule);
 app.enableShutdownHooks();
-await app.listen(3000);
+await app.listen(Number(process.env.PORT ?? 3000));

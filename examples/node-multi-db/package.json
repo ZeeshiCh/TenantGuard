@@ -1,0 +1,15 @@
+{
+  "name": "tenantguard-example-node",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@tenantguard/core": "workspace:*",
+    "@tenantguard/node": "workspace:*",
+    "@tenantguard/postgres": "workspace:*",
+    "pg": "^8.16.0",
+    "tsx": "^4.21.0"
+  }
+}
