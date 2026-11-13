@@ -12,6 +12,9 @@ jobs:
   verify:
     if: inputs.confirm == 'release'
     runs-on: ubuntu-24.04
+    concurrency:
+      group: tenantguard-release-${{ github.ref }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -20,6 +23,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test:integration
+      - run: pnpm release:preflight
+      - run: pnpm release:pack
       - run: docker compose -f examples/compose/docker-compose.yml config
       - name: Package dry run
         run: pnpm -r pack --pack-destination /tmp/tenantguard-release-packages

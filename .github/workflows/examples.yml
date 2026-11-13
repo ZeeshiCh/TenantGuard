@@ -30,3 +30,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: docker compose -f examples/compose/docker-compose.yml config
       - run: pnpm typecheck
+      - run: pnpm test:examples
