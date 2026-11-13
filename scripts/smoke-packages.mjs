@@ -58,20 +58,6 @@ try {
         cwd: directory,
         stdio: 'pipe',
       });
-    } else {
-      execFileSync(
-        'npm',
-        [
-          'pack',
-          directory,
-          '--ignore-scripts',
-          '--pack-destination',
-          destination,
-          '--cache',
-          join(destination, 'cache'),
-        ],
-        { cwd: destination, stdio: 'pipe' },
-      );
     }
     const require = createRequire(join(directory, 'package.json'));
     for (const dependency of Object.keys(manifest.dependencies ?? {})) {
@@ -123,11 +109,6 @@ try {
     'drizzle',
   ])
     pack(join(root, 'packages', name), true);
-  pack(
-    dirname(
-      createRequire(join(root, 'package.json')).resolve('pg/package.json'),
-    ),
-  );
   writeFileSync(
     join(temporary, 'package.json'),
     JSON.stringify({ private: true, type: 'module' }),
