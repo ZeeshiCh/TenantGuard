@@ -3,7 +3,10 @@
 Node `AsyncLocalStorage` carrier for TenantGuard. Install it when framework handlers need ambient context helpers such as `requireTenant()`.
 
 ```ts
-const guard = createTenantGuard({ carrier: nodeContext, authorize: verifyMembership });
+const guard = createTenantGuard({
+  carrier: nodeContext,
+  authorize: verifyMembership,
+});
 await guard.run(request, () => service.execute(requireTenant()));
 ```
 
