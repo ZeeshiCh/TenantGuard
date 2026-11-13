@@ -1,1 +1,1 @@
-Reserved for a future documentation application. Current documentation is in the repository README and docs/security.md.
+The static documentation entry point is `index.html`. During development, the canonical source remains the repository [README](../../README.md), [architecture guide](../../docs/architecture.md), [security guide](../../docs/security.md), [CLI guide](../../packages/cli/README.md) and [runnable examples](../../examples/README.md). Publish this directory with GitHub Pages after configuring the repository Pages source.

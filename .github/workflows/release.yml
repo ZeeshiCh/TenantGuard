@@ -1,0 +1,25 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type release to run the protected release checks'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: inputs.confirm == 'release'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test:integration
+      - run: docker compose -f examples/compose/docker-compose.yml config
+      - name: Package dry run
+        run: pnpm -r pack --pack-destination /tmp/tenantguard-release-packages
