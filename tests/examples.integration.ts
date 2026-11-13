@@ -5,7 +5,10 @@ import { resolve } from 'node:path';
 import { postgresFixture, tenantA, tenantB } from './helpers/postgres.js';
 
 async function waitFor(url: string, token: string, expected: number) {
-  for (let attempt = 0; attempt < 60; attempt++) {
+  // tsx startup on a clean GitHub runner can take several seconds while the
+  // workspace packages are resolved and compiled. Keep polling long enough to
+  // distinguish a slow, healthy example from a genuinely unavailable server.
+  for (let attempt = 0; attempt < 300; attempt++) {
     try {
       const response = await fetch(url, {
         headers: { authorization: `Bearer ${token}` },
